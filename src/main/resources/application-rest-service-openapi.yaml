@@ -1,0 +1,341 @@
+openapi: "3.0.2"
+info:
+  title: Application Rest api
+  version: "1.0"
+servers:
+  - url: http://localhost:8082
+    description: local dev server
+
+
+paths:
+
+  /roles:
+    post:
+      security:
+        - bearerAuth: [ ]
+      description: create an application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationBody'
+            example:
+              name: "My Messaging App"
+              clientId: 1222-myclientId
+              creatorUserId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              organizationId: 3fa85f64-5717-4562-b3fc-2c963f66afa7
+      responses:
+        '201':
+          description: Successfully created new application
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+        '400':
+          description: application with clientId already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+    put:
+      description: update application
+      security:
+        - bearerAuth: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationBody'
+      responses:
+        '200':
+          description: returns uuid of applicationId
+          content:
+            application/json:
+              schema:
+               $ref: '#/components/schemas/OkResponseBody'
+        '400':
+          description: application with clientId already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestBody'
+    get:
+      description: get roles by page
+      parameters:
+        - name: size
+          in: query
+          description: numbers of items on a page
+          schema:
+            type: integer
+        - name: page
+          in: query
+          description: Specifies the page number of the roles to be displayed
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successfully returned a page of roles
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Page'
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Application'
+        '400':
+          description: failed to get roles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestBody'
+
+
+
+  /roles/{id}:
+    get:
+      description: get role by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successfully retrieved role by id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          description: No role found with id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestBody'
+
+    delete:
+      description: delete role
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: role deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: failed to delete role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestBody'
+  /roles/{organizationsId}:
+    get:
+      description: get roles for organization id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successfully returned roles for organization id
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Page'
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Application'
+
+        '400':
+          description: Failed to get roles by organization id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestBody'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Page:
+      type: object
+      properties:
+        number:
+          type: integer
+        size:
+          type: integer
+
+    Application:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        client:
+          $ref: '#/components/schemas/Client'
+        created:
+          type: string
+          format: date-time
+        creatorUserId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+    ApplicationBody:
+      type: object
+      required:
+        - name
+        - clientId
+      properties:
+        name:
+          type: string
+        clientId:
+          type: string
+        creatorUserId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+    ApplicationUser:
+      type: object
+      required:
+        - id
+        - applicationId
+        - userId
+      properties:
+        id:
+          type: string
+          format: uuid
+        applicationId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        userRole:
+          type: string
+          enum:
+            - admin
+            - user
+        groupNames:
+          type: string
+    ApplicationUserBody:
+      allOf:
+        - $ref: '#/components/schemas/ApplicationUser'
+        - type: object
+          required:
+            - updateAction
+          properties:
+            updateAction:
+              type: string
+              enum: [add, update, delete]
+    RoleGroupNames:
+      type: object
+      properties:
+        userRole:
+          type: string
+        groupNames:
+          type: array
+          items:
+            type: string
+    Client:
+      type: object
+      properties:
+        clientId:
+          type: string
+        clientSecret:
+          type: string
+        clientSecretExpiresAt:
+          type: string
+        clientName:
+          type: string
+        clientAuthenticationMethods:
+          type: array
+          items:
+            type: string
+            enum:
+              - CLIENT_SECRET_BASIC
+              - CLIENT_SECRET_POST
+              - CLIENT_SECRET_JWT
+              - PRIVATE_KEY_JWT
+              - NONE
+        authorizationGrantTypes:
+          type: array
+          items:
+            type: string
+            enum:
+              - AUTHORIZATION_CODE
+              - REFRESH_TOKEN
+              - CLIENT_CREDENTIALS
+              - PASSWORD
+              - JWT_BEARER
+        redirectUris:
+          type: array
+          items:
+            type: string
+        scopes:
+          type: array
+          items:
+            type: string
+
+
+
+
+
+
+
+    BadRequestBody:
+      type: object
+      properties:
+        message:
+          type: string
+    OkResponseBody:
+      type: object
+      properties:
+        message:
+          type: string
+          format: uuid
+

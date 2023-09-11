@@ -1,0 +1,7 @@
+application-rest-service.iml
+.DS_Store
+.gradle/
+build/
+.idea/
+# Log file
+*.log
