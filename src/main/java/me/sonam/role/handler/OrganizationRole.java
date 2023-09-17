@@ -17,7 +17,11 @@ public interface OrganizationRole {
     Mono<String> updateRole(Mono<Map> mapMono);
     Mono<String> deleteRole(UUID id);
 
-    Mono<String> updateRoleUser(Flux<Map> mapMono);
-    Mono<Page<RoleUser>> getRoleUsers(UUID roleId, Pageable pageable);
-    Mono<RoleUser> getRoleForUser(UUID clientId, UUID userId);
+    Mono<String> addRoleUser(Mono<Map> mapMono);
+    Mono<String> updateRoleUser(Mono<Map> mapMono);
+    Mono<String> deleteRoleUser(UUID roleId, UUID userId);
+
+    Mono<Page<RoleUser>> getRoleUsers(String clientId, Pageable pageable);
+    Flux<RoleUser> getRoleForUser(String clientId, UUID userId);
+
 }

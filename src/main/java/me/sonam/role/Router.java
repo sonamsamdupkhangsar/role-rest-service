@@ -32,11 +32,14 @@ public class Router {
                         .and(accept(MediaType.APPLICATION_JSON)), handler::getOrganizationRoles)
                 .andRoute(GET("/roles/{id}")
                         .and(accept(MediaType.APPLICATION_JSON)), handler::getRole)
-                .andRoute(PUT("/roles/users"), handler::updateUser)
+                //.andRoute(PUT("/roles/users"), handler::updateUser)
                 .andRoute(GET("/roles/clientId/{clientId}/users")
                         .and(accept(MediaType.APPLICATION_JSON)), handler::getRoleUsers)
                 .andRoute(GET("/roles/clientId/{clientId}/users/{userId}")
-                        .and(accept(MediaType.APPLICATION_JSON)), handler::getRoleForUser);
+                        .and(accept(MediaType.APPLICATION_JSON)), handler::getRoleForUser)
+                .andRoute(POST("/roles/user").and(accept(MediaType.APPLICATION_JSON)), handler::addRoleUser)
+                .andRoute(PUT("/roles/user").and(accept(MediaType.APPLICATION_JSON)), handler::updateRoleUser)
+                .andRoute(DELETE("/roles/{roleId}/users/{userId}").and(accept(MediaType.APPLICATION_JSON)), handler::deleteRoleUser);
 
     }
 }

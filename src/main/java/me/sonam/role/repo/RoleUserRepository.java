@@ -10,10 +10,11 @@ import java.util.UUID;
 
 public interface RoleUserRepository extends ReactiveCrudRepository<RoleUser, UUID> {
     Mono<Integer> deleteByRoleId(UUID roleId);
-    Mono<Boolean> existsByRoleIdAndUserId(UUID roleId, UUID userId);
+    Mono<Boolean> existsByClientIdAndRoleIdAndUserId(String clientId, UUID roleId, UUID userId);
     Mono<Integer> deleteByRoleIdAndUserId(UUID roleId, UUID userId);
     Mono<RoleUser> findByUserId(UUID userId);
-    Flux<RoleUser> findByClientId(UUID clientId, Pageable pageable);
-    Mono<Long> countByClientId(UUID organizationId);
-    Mono<RoleUser> findByClientIdAndUserId(UUID clientId, UUID userId);
+    Flux<RoleUser> findByClientId(String clientId, Pageable pageable);
+    Mono<Long> countByClientId(String clientId);
+    Flux<RoleUser> findByClientIdAndUserId(String clientId, UUID userId);
+    Mono<Boolean> existsByClientIdAndUserId(String clientId, UUID userId);
 }

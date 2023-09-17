@@ -12,7 +12,7 @@ import java.util.UUID;
 public class RoleUser implements Persistable<UUID> {
     @Id
     private UUID id;
-    private UUID clientId;
+    private String clientId;
     private UUID userId;
     private UUID roleId;
     @Transient
@@ -20,7 +20,7 @@ public class RoleUser implements Persistable<UUID> {
 
     @Override
     public String toString() {
-        return "ApplicationUser{" +
+        return "RoleUser{" +
                 "id=" + id +
                 ", clientId=" + clientId +
                 ", userId=" + userId +
@@ -30,7 +30,7 @@ public class RoleUser implements Persistable<UUID> {
                 '}';
     }
 
-    public RoleUser(UUID id, UUID clientId, UUID userId, UUID roleId) {
+    public RoleUser(UUID id, String clientId, UUID userId, UUID roleId) {
         if (id == null) {
             this.id = UUID.randomUUID();
             this.isNew = true;
@@ -48,7 +48,7 @@ public class RoleUser implements Persistable<UUID> {
         this.roleName = roleName;
     }
 
-    public UUID getClientId() {
+    public String getClientId() {
         return clientId;
     }
 

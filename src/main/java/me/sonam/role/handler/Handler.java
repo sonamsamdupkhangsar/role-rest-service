@@ -31,7 +31,7 @@ public class Handler {
                 .onErrorResume(throwable -> {
                     LOG.error("get role by id failed, error: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(getMap(Pair.of("error", throwable.getMessage())));
+                            .bodyValue(Map.of("error", throwable.getMessage()));
                 });
     }
 
@@ -40,14 +40,15 @@ public class Handler {
         Pageable pageable = Util.getPageable(serverRequest);
 
         return organizationRole.getOrganizationRoles(
-                UUID.fromString(serverRequest.pathVariable("organizationId")), pageable)
+                        UUID.fromString(serverRequest.pathVariable("organizationId")), pageable)
                 .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(s))
                 .onErrorResume(throwable -> {
                     LOG.error("get roles call failed, error: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(getMap(Pair.of("error", throwable.getMessage())));
+                            .bodyValue(Map.of("error", throwable.getMessage()));
                 });
     }
+
     public Mono<ServerResponse> createRole(ServerRequest serverRequest) {
         LOG.info("create role");
 
@@ -57,17 +58,17 @@ public class Handler {
                             map.put("id", s);
                             LOG.info("returning created");
                             return ServerResponse.created(URI.create("/roles/" + s))
-                                   .contentType(MediaType.APPLICATION_JSON).bodyValue(map);
+                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(map);
                         }
                 )
                 .onErrorResume(throwable -> {
                     LOG.error("create role failed, error: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(getMap(Pair.of("error", throwable.getMessage())));
+                            .bodyValue(Map.of("error", throwable.getMessage()));
                 });
     }
 
-    public Mono<ServerResponse> updateRole(ServerRequest serverRequest){
+    public Mono<ServerResponse> updateRole(ServerRequest serverRequest) {
         LOG.info("update role");
 
         return organizationRole.updateRole(serverRequest.bodyToMono(Map.class))
@@ -79,11 +80,11 @@ public class Handler {
                 });
     }
 
-    public Mono<ServerResponse> deleteRole(ServerRequest serverRequest){
+    public Mono<ServerResponse> deleteRole(ServerRequest serverRequest) {
         LOG.info("delete role");
 
         return organizationRole.deleteRole(UUID.fromString(serverRequest.pathVariable("id")))
-                .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(Pair.of("message", s)))
+                .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(Map.of("message", s)))
                 .onErrorResume(throwable -> {
                     LOG.error("delete role failed: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
@@ -91,13 +92,39 @@ public class Handler {
                 });
     }
 
-    public Mono<ServerResponse> updateUser(ServerRequest serverRequest){
+    public Mono<ServerResponse> addRoleUser(ServerRequest serverRequest) {
         LOG.info("delete role");
 
-        return organizationRole.updateRoleUser(serverRequest.bodyToFlux(Map.class))
-                .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(Pair.of("message", s)))
+        return organizationRole.addRoleUser(serverRequest.bodyToMono(Map.class))
+                .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(Map.of("message", s)))
+                .onErrorResume(throwable -> {
+                    LOG.error("add role user failed: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+
+    public Mono<ServerResponse> updateRoleUser(ServerRequest serverRequest) {
+        LOG.info("delete role");
+
+        return organizationRole.updateRoleUser(serverRequest.bodyToMono(Map.class))
+                .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(Map.of("message", s)))
                 .onErrorResume(throwable -> {
                     LOG.error("update role user failed: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    public Mono<ServerResponse> deleteRoleUser(ServerRequest serverRequest) {
+        LOG.info("delete role");
+
+        return organizationRole.deleteRoleUser(UUID.fromString(serverRequest.pathVariable("roleId")),
+                        UUID.fromString(serverRequest.pathVariable("userId")))
+                .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(Pair.of("message", s)))
+                .onErrorResume(throwable -> {
+                    LOG.error("delete role user failed: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
                             .bodyValue(Map.of("error", throwable.getMessage()));
                 });
@@ -108,36 +135,30 @@ public class Handler {
 
         Pageable pageable = Util.getPageable(serverRequest);
 
-        return organizationRole.getRoleUsers(UUID.fromString(serverRequest.pathVariable("clientId")), pageable)
+        return organizationRole.getRoleUsers(serverRequest.pathVariable("clientId"), pageable)
                 .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(s))
                 .onErrorResume(throwable -> {
                     LOG.error("get role user call failed, error: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(getMap(Pair.of("error", throwable.getMessage())));
+                            .bodyValue(Map.of("error", throwable.getMessage()));
                 });
     }
 
     public Mono<ServerResponse> getRoleForUser(ServerRequest serverRequest) {
         LOG.info("get role for User");
 
-        Pageable pageable = Util.getPageable(serverRequest);
-
-        return organizationRole.getRoleForUser(UUID.fromString(serverRequest.pathVariable("clientId")),
+        return organizationRole.getRoleForUser(serverRequest.pathVariable("clientId"),
                         UUID.fromString(serverRequest.pathVariable("userId")))
-                .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(s))
+                .collectList()
+                .flatMap(s -> {
+                    LOG.info("sending response back: {}", s);
+                    return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(s);
+                })
                 .onErrorResume(throwable -> {
                     LOG.error("get role for user call failed, error: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(getMap(Pair.of("error", throwable.getMessage())));
+                            .bodyValue(Map.of("error", throwable.getMessage()));
                 });
     }
 
-    private Map<String, String> getMap(Pair<String, String>... pairs){
-        Map<String, String> map = new HashMap<>();
-
-        for(Pair<String, String> pair: pairs) {
-            map.put(pair.getFirst(), pair.getSecond());
-        }
-        return map;
-    }
 }
