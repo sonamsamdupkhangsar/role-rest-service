@@ -31,7 +31,7 @@ POSTGRES_SERVICE: dservice
 POSTGRES_PASSWORD: dpassword
 
 permitpath:
-  - path: /api/health/*
+  - path: /roles/api/health/*
 
 token:
   audiences: oauth-client

@@ -33,7 +33,7 @@ eureka:
       defaultZone: ${DEFAULT_ZONE}
 
 permitpath:
-  - path: /api/health/*
+  - path: /roles/api/health/*
   - path: /actuator/*
 
 
