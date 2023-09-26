@@ -79,9 +79,9 @@ affinity: {}
 
 postgres:
   port: "5432"
-  service: roledb-minimal-cluster
-  secretfile: sonam.roledb-minimal-cluster.credentials.postgresql.acid.zalan.do
-  dbname: roledb
+  service: role-minimal-cluster
+  secretfile: sonam.role-minimal-cluster.credentials.postgresql.acid.zalan.do
+  dbname: role
 
 
 envs:
