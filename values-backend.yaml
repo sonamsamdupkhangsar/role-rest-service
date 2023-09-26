@@ -99,13 +99,13 @@ envs:
 
 health:
   liveness:
-    path: /api/health/liveness
+    path: /roles/api/health/liveness
     port: 8080
     initialDelaySeconds: 60
     periodSeconds: 5
     failureThreshold: 5
   readiness:
-    path: /api/health/readiness
+    path: /roles/api/health/readiness
     port: 8080
     initialDelaySeconds: 60
     periodSeconds: 5
