@@ -4,7 +4,6 @@ This role service will save user roles for a organization.
 ## Run locally using profile
 Use the following to run local profile which will pick up properties defined in the `application-local.yml` :
 
-
 ```
 ./gradlew bootRun --args="--spring.profiles.active=local"
 ```
