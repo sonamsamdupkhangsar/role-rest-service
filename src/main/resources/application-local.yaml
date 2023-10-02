@@ -15,8 +15,8 @@ EUREKA_PASSWORD: test
 eureka:
   client:
     enabled: true
-
-DEFAULT_ZONE: http://${EUREKA_USER}:${EUREKA_PASSWORD}@${EUREKA_HOST}/eureka
+    serviceUrl:
+      defaultZone: http://${EUREKA_USER}:${EUREKA_PASSWORD}@${EUREKA_HOST}/eureka
 
 ISSUER_URL: http://api-gateway:9001/issuer
 OAUTH_CLIENTS: oauth-client

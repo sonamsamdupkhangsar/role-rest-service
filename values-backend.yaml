@@ -11,7 +11,7 @@ image:
 imagePullSecrets:
   - name: github-regcred
 nameOverride: ""
-fullnameOverride: ""
+fullnameOverride: "role-rest-service"
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -46,11 +46,11 @@ ingress:
   enabled: false
   ingressClass: nginx
   annotations:
-    nginx.ingress.kubernetes.io/auth-url: http://jwt-rest-service-mychart.backend.svc.cluster.local:80/validate
+    nginx.ingress.kubernetes.io/auth-url: http://noexist-rest-service-mychart.backend.svc.cluster.local:80/validate
     # pass authId header returned from jwt-rest-service validation of jwt token
     nginx.ingress.kubernetes.io/auth-response-headers: authId
   hosts:
-    - host: application-rest-service.sonam.cloud
+    - host: role-rest-service.sonam.cloud
       paths:
         - path: /
           pathType: Prefix
@@ -87,10 +87,6 @@ postgres:
 envs:
   - name: DB_SSLMODE
     value: REQUIRE
-  - name: EUREKA_HOST
-    value: discovery-service.sonam.cloud
-  - name: DEFAULT_ZONE
-    value: https://${EUREKA_USER}:${EUREKA_PASSWORD}@${EUREKA_HOST}/eureka
   - name: ISSUER_URL
     value: https://authorization.sonam.cloud/issuer
   - name: OAUTH_CLIENTS
@@ -110,11 +106,3 @@ health:
     initialDelaySeconds: 60
     periodSeconds: 5
     failureThreshold: 5
-
-secretFiles:
-  - file: eureka-discovery
-    keys:
-      - key: user
-        name: EUREKA_USER
-      - key: password
-        name: EUREKA_PASSWORD
