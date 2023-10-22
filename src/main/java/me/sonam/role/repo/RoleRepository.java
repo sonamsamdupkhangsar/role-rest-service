@@ -11,26 +11,26 @@ import java.util.UUID;
 
 public interface RoleRepository extends ReactiveCrudRepository<Role, UUID> {
     @Query("select r.* from Role r,  Role_Organization ro " +
-            "where ro.organization_id = ?1  " +
-            " and r.name = ?2 " +
+            "where ro.organization_id = :id " +//?1  " +
+            " and r.name = :name " + ////?2 " +
             " and ro.role_id=r.id")
     Flux<Role> findByOrganizationIdAndName(@Param("id") UUID id, @Param("name") String name);
 
     @Query("select r.* from Role r,  Role_User ru " +
-            "where ru.user_id = ?1  " +
-            " and r.name = ?2 " +
+            "where ru.user_id = :userId " + //?1  " +
+            " and r.name = :name " + //?2 " +
             " and ru.role_id=r.id")
     Flux<Role> findByUserIdAndName(@Param("userId") UUID userId, @Param("name") String name);
 
 
     @Query("select r.* from Role r,  Role_Organization ro " +
-            "where ro.organization_id = ?1  " +
+            "where ro.organization_id = :organizationId " + //?1  " +
             " and ro.role_id=r.id")
     Flux<Role> findByOrganizationId(@Param("organizationId") UUID organizationId, Pageable pageable);
 
 
     @Query("select r.* from Role r,  Role_User ru " +
-            "where ru.user_id = ?1  " +
+            "where ru.user_id = :userId " + //?1  " +
             " and ru.role_id=r.id")
     Flux<Role> findByUserId(@Param("userId") UUID userId, Pageable pageable);
 
