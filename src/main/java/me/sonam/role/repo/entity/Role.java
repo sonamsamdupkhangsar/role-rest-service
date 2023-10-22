@@ -13,13 +13,12 @@ public class Role implements Persistable<UUID> {
 
     @Id
     private UUID id;
-
-    private UUID organizationId;
     private String name;
+
     @Transient
     private boolean isNew;
 
-    public Role(UUID id, UUID organizationId, String name) {
+    public Role(UUID id,  String name) {
         if (id != null) {
             this.id = id;
             this.isNew = false;
@@ -29,12 +28,10 @@ public class Role implements Persistable<UUID> {
             this.isNew = true;
         }
         this.name = name;
-        this.organizationId = organizationId;
     }
     public String getName() {
         return this.name;
     }
-    public UUID getOrganizationId() { return this.organizationId; }
     @Override
     public UUID getId() {
         return id;
@@ -45,12 +42,19 @@ public class Role implements Persistable<UUID> {
         return isNew;
     }
 
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
     @Override
     public String toString() {
-        return "ApplicationRole{" +
+        return "Role{" +
                 "id=" + id +
                 ", name='" + name + '\'' +
-                ", organizationId='"+ organizationId +'\''+
                 ", isNew=" + isNew +
                 '}';
     }

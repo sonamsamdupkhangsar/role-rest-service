@@ -1,7 +1,7 @@
 package me.sonam.role.handler;
 
 import me.sonam.role.repo.entity.Role;
-import me.sonam.role.repo.entity.RoleUser;
+import me.sonam.role.repo.entity.RoleClientUser;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
@@ -12,16 +12,19 @@ import java.util.UUID;
 
 public interface OrganizationRole {
     Mono<Role> getRoleById(UUID applicationId);
+    //return all rolws owned by a organizationId
     Mono<Page<Role>> getOrganizationRoles(UUID organizationId, Pageable pageable);
+    //return all roles owned by a userId
+    Mono<Page<Role>> getUserRoles(UUID userId, Pageable pageable);
     Mono<String> createRole(Mono<Map> mapMono);
     Mono<String> updateRole(Mono<Map> mapMono);
     Mono<String> deleteRole(UUID id);
 
-    Mono<String> addRoleUser(Mono<Map> mapMono);
-    Mono<String> updateRoleUser(Mono<Map> mapMono);
-    Mono<String> deleteRoleUser(UUID roleId, UUID userId);
+    Mono<String> addRoleClientUser(Mono<Map> mapMono);
+    Mono<String> updateRoleClientUser(Mono<Map> mapMono);
+    Mono<String> deleteRoleClientUser(UUID roleId, UUID userId);
 
-    Mono<Page<RoleUser>> getRoleUsers(String clientId, Pageable pageable);
-    Flux<RoleUser> getRoleForUser(String clientId, UUID userId);
+    Mono<Page<RoleClientUser>> getRoleUsers(String clientId, Pageable pageable);
+    Flux<RoleClientUser> getRoleForUser(String clientId, UUID userId);
 
 }
