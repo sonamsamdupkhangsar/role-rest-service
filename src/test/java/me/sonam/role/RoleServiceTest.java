@@ -3,10 +3,10 @@ package me.sonam.role;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import me.sonam.role.repo.RoleOrganizationRepository;
 import me.sonam.role.repo.RoleRepository;
+import me.sonam.role.repo.RoleClientUserRepository;
 import me.sonam.role.repo.RoleUserRepository;
-import me.sonam.role.repo.entity.RoleUser;
-import net.bytebuddy.dynamic.scaffold.MethodGraph;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +27,7 @@ import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.test.web.reactive.server.EntityExchangeResult;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -51,9 +52,14 @@ public class RoleServiceTest {
     @Autowired
     private RoleRepository roleRepository;
     @Autowired
+    private RoleClientUserRepository roleClientUserRepository;
+    @Autowired
+    private RoleOrganizationRepository roleOrganizationRepository;
+
+    @Autowired
     private RoleUserRepository roleUserRepository;
 
-    private UUID createRole(UUID creatorId, UUID clientId, boolean shouldExistBefore, UUID organizationId, String roleName, HttpStatus httpStatus) {
+    private UUID createRoleByOrganizationId(UUID creatorId, UUID clientId, boolean shouldExistBefore, UUID organizationId, String roleName, HttpStatus httpStatus) {
         LOG.info("create role {}", roleName);
         final String authenticationId = "sonam";
         Jwt jwt = jwt(authenticationId);
@@ -62,7 +68,7 @@ public class RoleServiceTest {
         //UUID clientId = UUID.randomUUID();
        // UUID userId = UUID.randomUUID();
 
-        List<Map> list = getPage(organizationId);
+        List<Map> list = getRolesOwnedByOrganization(organizationId);
         List<String> roleNames = list.stream().map(map -> map.get("name").toString()).collect(toList());
 
         LOG.info("should {} contain role '{}' role at first", shouldExistBefore, roleName);
@@ -79,7 +85,7 @@ public class RoleServiceTest {
         LOG.info("created roleName: {} with id: {}", roleName, entityExchangeResult.getResponseBody().get("id"));
 
 
-        list  = getPage(organizationId);
+        list  = getRolesOwnedByOrganization(organizationId);
 
         roleNames = list.stream().map(map -> map.get("name").toString()).collect(toList());
 
@@ -100,24 +106,90 @@ public class RoleServiceTest {
 
     }
 
+    /**
+     * this is for creating a role owned by a user (not by a organization)
+     * @param creatorId
+     * @param clientId
+     * @param shouldExistBefore
+     * @param roleName
+     * @param httpStatus
+     * @return
+     */
+    private UUID createRoleByUser(UUID creatorId, UUID clientId, boolean shouldExistBefore, String roleName, HttpStatus httpStatus) {
+        LOG.info("create role {}", roleName);
+        final String authenticationId = "sonam";
+        Jwt jwt = jwt(authenticationId);
+        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+
+        List<Map> list = getRolesOwnedByUser(creatorId);
+        List<String> roleNames = list.stream().map(map -> map.get("name").toString()).collect(toList());
+
+        LOG.info("should {} contain role '{}' role at first", shouldExistBefore, roleName);
+        assertThat(roleNames.contains(roleName)).isEqualTo(shouldExistBefore);
+
+        var mapBody = Map.of(
+                "name", roleName,
+                "clientId", clientId.toString(),
+                "userId", creatorId.toString());
+
+        EntityExchangeResult<Map> entityExchangeResult = webTestClient.post().uri("/roles")
+                .headers(addJwt(jwt)).bodyValue(mapBody).exchange().expectStatus().isEqualTo(httpStatus).expectBody(Map.class)
+                .returnResult();
+        LOG.info("created roleName: {} with id: {}", roleName, entityExchangeResult.getResponseBody().get("id"));
+
+        list  = getRolesOwnedByUser(creatorId);
+
+        roleNames = list.stream().map(map -> map.get("name").toString()).collect(toList());
+
+        LOG.info("now we should have a role '{}' from getPage call", roleName);
+        assertThat(roleNames.contains(roleName)).isTrue();
+
+        if (httpStatus.equals(HttpStatus.CREATED)) {
+            assertRoles(Map.of(), jwt, clientId);
+        }
+
+        if (entityExchangeResult.getResponseBody().get("id") != null) {
+            return UUID.fromString(entityExchangeResult.getResponseBody().get("id").toString());
+        }
+        else {
+            LOG.error("returing a random uuid when null");
+            return UUID.randomUUID();
+        }
+
+    }
     @Test
-    public void create() {
-        LOG.info("create application");
+    public void createRoleOwnedByOrganization() {
+        LOG.info("create role owned by organization");
 
         UUID organizationId = UUID.randomUUID();
         UUID creatorId = UUID.randomUUID();
         UUID clientId = UUID.randomUUID();
 
-        UUID userRoleId = createRole(creatorId, clientId, false, organizationId, "user", HttpStatus.CREATED);
+        UUID userRoleId = createRoleByOrganizationId(creatorId, clientId, false, organizationId, "user", HttpStatus.CREATED);
 
         LOG.info("now create the same role in organizationId");
-        UUID userRoleId2 = createRole(creatorId, clientId, true, organizationId, "user", HttpStatus.BAD_REQUEST);
+        UUID userRoleId2 = createRoleByOrganizationId(creatorId, clientId, true, organizationId, "user", HttpStatus.BAD_REQUEST);
+
+    }
+
+    @Test
+    public void createRoleOwnedByUser() {
+        LOG.info("create role owned by user");
+
+        UUID creatorId = UUID.randomUUID();
+        UUID clientId = UUID.randomUUID();
+
+        UUID userRoleId = createRoleByUser(creatorId, clientId, false, "user", HttpStatus.CREATED);
+
+        LOG.info("now create the same role in organizationId");
+        UUID userRoleId2 = createRoleByUser(creatorId, clientId, true,"user", HttpStatus.BAD_REQUEST);
+
     }
 
     @AfterEach
     public void deleteAllRoles() {
         roleRepository.deleteAll().subscribe();
-        roleUserRepository.deleteAll().subscribe();
+        roleClientUserRepository.deleteAll().subscribe();
     }
     @Test
     public void update() {
@@ -128,7 +200,7 @@ public class RoleServiceTest {
         UUID organizationId = UUID.randomUUID();
         UUID creatorId = UUID.randomUUID();
         UUID clientId = UUID.randomUUID();
-        UUID userRoleId = createRole(creatorId, clientId, false, organizationId, "user", HttpStatus.CREATED);
+        UUID userRoleId = createRoleByOrganizationId(creatorId, clientId, false, organizationId, "user", HttpStatus.CREATED);
 
 
         LOG.debug("build a map with admin name for role update");
@@ -139,7 +211,7 @@ public class RoleServiceTest {
                 .returnResult();
         LOG.info("update roleName: {}", entityExchangeResult.getResponseBody().get("message"));
 
-        List<Map> list = getPage(organizationId);
+        List<Map> list = getRolesOwnedByOrganization(organizationId);
         List<String> listOfNames = list.stream().map(map -> map.get("name").toString()).collect(toList());
 
 
@@ -160,18 +232,26 @@ public class RoleServiceTest {
         UUID creatorId = UUID.randomUUID();
         UUID clientId = UUID.randomUUID();
 
-        LOG.info("create user role");
-        UUID userRoleId = createRole(creatorId, clientId, false, organizationId, "user", HttpStatus.CREATED);
+        LOG.info("create role for organization as owner");
+        UUID userRoleId = createRoleByOrganizationId(creatorId, clientId, false, organizationId, "user", HttpStatus.CREATED);
+
+        StepVerifier.create(roleOrganizationRepository.existsByRoleIdAndOrganizationId(userRoleId, organizationId))
+                .expectNext(true).verifyComplete();
 
         EntityExchangeResult<Map> entityExchangeResult = webTestClient.delete().uri("/roles/"+userRoleId.toString())
                 .headers(addJwt(jwt)).exchange().expectStatus().isOk().expectBody(Map.class)
                 .returnResult();
         LOG.info("update roleName: {}", entityExchangeResult.getResponseBody().get("message"));
 
-        List<Map> list = getPage(organizationId);
+        List<Map> list = getRolesOwnedByOrganization(organizationId);
         List<String> listOfNames = list.stream().map(map -> map.get("name").toString()).collect(toList());
 
         assertThat(listOfNames.contains("user")).isFalse();
+
+        StepVerifier.create(roleUserRepository.existsByRoleIdAndUserId(userRoleId, creatorId))
+                .expectNext(false).verifyComplete();
+        StepVerifier.create(roleOrganizationRepository.existsByRoleIdAndOrganizationId(userRoleId, organizationId))
+                .expectNext(false).verifyComplete();
     }
 
     @Test
@@ -185,7 +265,7 @@ public class RoleServiceTest {
         UUID clientId = UUID.randomUUID();
 
         LOG.info("create user role");
-        UUID userRoleId = createRole(creatorId, clientId, false, organizationId, "user", HttpStatus.CREATED);
+        UUID userRoleId = createRoleByOrganizationId(creatorId, clientId, false, organizationId, "user", HttpStatus.CREATED);
 
         EntityExchangeResult<Map> entityExchangeResult = webTestClient.get().uri("/roles/"+userRoleId)
                 .headers(addJwt(jwt)).exchange().expectStatus().isOk().expectBody(Map.class)
@@ -193,7 +273,7 @@ public class RoleServiceTest {
         LOG.info("retrieved role by id: {}", entityExchangeResult.getResponseBody());
 
         assertThat(entityExchangeResult.getResponseBody().get("id")).isEqualTo(userRoleId.toString());
-        assertThat(entityExchangeResult.getResponseBody().get("organizationId")).isNotNull();
+        assertThat(entityExchangeResult.getResponseBody().get("organizationId")).isNull();
         assertThat(entityExchangeResult.getResponseBody().get("name")).isEqualTo("user");
     }
 
@@ -211,12 +291,12 @@ public class RoleServiceTest {
         UUID clientId = UUID.randomUUID();
 
         LOG.info("create user role");
-        UUID userRoleId = createRole(creatorId, clientId, false, companyId1, "user", HttpStatus.CREATED);
-        UUID adminRoleId = createRole(creatorId, clientId, false,companyId1, "admin", HttpStatus.CREATED);
-        UUID emplyeeRoleId = createRole(creatorId, clientId, false,companyId1, "employee", HttpStatus.CREATED);
-        UUID managerRoleId = createRole(creatorId, clientId, false,companyId1, "manager", HttpStatus.CREATED);
+        UUID userRoleId = createRoleByOrganizationId(creatorId, clientId, false, companyId1, "user", HttpStatus.CREATED);
+        UUID adminRoleId = createRoleByOrganizationId(creatorId, clientId, false,companyId1, "admin", HttpStatus.CREATED);
+        UUID emplyeeRoleId = createRoleByOrganizationId(creatorId, clientId, false,companyId1, "employee", HttpStatus.CREATED);
+        UUID managerRoleId = createRoleByOrganizationId(creatorId, clientId, false,companyId1, "manager", HttpStatus.CREATED);
 
-        List<Map> roleList = getPage(companyId1);
+        List<Map> roleList = getRolesOwnedByOrganization(companyId1);
         List<String> listOfNames = roleList.stream().map(map -> map.get("name").toString()).collect(toList());
 
         assertThat(listOfNames.contains("user")).isTrue();
@@ -225,30 +305,48 @@ public class RoleServiceTest {
         assertThat(listOfNames.contains("manager")).isTrue();
         assertThat(listOfNames.contains("person")).isFalse();
 
-        UUID companyId2managerRoleId = createRole(creatorId, clientId, false, companyId2, "manager", HttpStatus.CREATED);
-        UUID companyId2userRoleId = createRole(creatorId, clientId, false, companyId2, "user", HttpStatus.CREATED);
+        UUID companyId2managerRoleId = createRoleByOrganizationId(creatorId, clientId, false, companyId2, "manager", HttpStatus.CREATED);
+        UUID companyId2userRoleId = createRoleByOrganizationId(creatorId, clientId, false, companyId2, "user", HttpStatus.CREATED);
 
-        roleList = getPage(companyId2);
+        roleList = getRolesOwnedByOrganization(companyId2);
         listOfNames = roleList.stream().map(map -> map.get("name").toString()).collect(toList());
         assertThat(listOfNames.size()).isEqualTo(2);
 
         assertThat(listOfNames.contains("manager")).isTrue();
         assertThat(listOfNames.contains("user")).isTrue();
 
-        UUID companyId3managerRoleId = createRole(creatorId, clientId, false, companyId3, "manager", HttpStatus.CREATED);
+        UUID companyId3managerRoleId = createRoleByOrganizationId(creatorId, clientId, false, companyId3, "manager", HttpStatus.CREATED);
 
-        roleList = getPage(companyId3);
+        roleList = getRolesOwnedByOrganization(companyId3);
         listOfNames = roleList.stream().map(map -> map.get("name").toString()).collect(toList());
         assertThat(listOfNames.size()).isEqualTo(1);
 
         assertThat(listOfNames.contains("manager")).isTrue();
     }
-        public List<Map> getPage(UUID organizationId) {
+        public List<Map> getRolesOwnedByOrganization(UUID organizationId) {
         final String authenticationId = "sonam";
         Jwt jwt = jwt(authenticationId);
         when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
 
+            LOG.info("get roles owned by organization");
         EntityExchangeResult<RestPage> entityExchangeResult = webTestClient.get().uri("/roles/organization/"+organizationId)
+                .headers(addJwt(jwt)).exchange().expectStatus().isOk().expectBody(RestPage.class)
+                .returnResult();
+
+        LOG.info("roles found: {}", entityExchangeResult.getResponseBody().getContent());
+        List<Map> list = entityExchangeResult.getResponseBody().getContent();
+
+        return list;
+
+    }
+
+    public List<Map> getRolesOwnedByUser(UUID userId) {
+        final String authenticationId = "sonam";
+        Jwt jwt = jwt(authenticationId);
+        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+
+        LOG.info("get roles owned by user");
+        EntityExchangeResult<RestPage> entityExchangeResult = webTestClient.get().uri("/roles/user/"+userId)
                 .headers(addJwt(jwt)).exchange().expectStatus().isOk().expectBody(RestPage.class)
                 .returnResult();
 
@@ -272,8 +370,8 @@ public class RoleServiceTest {
         UUID companyId3 = UUID.randomUUID();
 
         LOG.info("create user role");
-        UUID userRoleId = createRole(creatorId, clientId, false, companyId1, "user", HttpStatus.CREATED);
-        UUID adminRoleId = createRole(creatorId, clientId, false, companyId1, "admin", HttpStatus.CREATED);
+        UUID userRoleId = createRoleByOrganizationId(creatorId, clientId, false, companyId1, "user", HttpStatus.CREATED);
+        UUID adminRoleId = createRoleByOrganizationId(creatorId, clientId, false, companyId1, "admin", HttpStatus.CREATED);
 
         List<Map> mapList = Arrays.asList(Map.of("clientId", clientId.toString(),
                         "userId", userId1.toString(),
@@ -411,8 +509,8 @@ public class RoleServiceTest {
         UUID companyId3 = UUID.randomUUID();
 
         LOG.info("create user role");
-        UUID userRoleId = createRole(creatorId, clientId, false, companyId1, "user", HttpStatus.CREATED);
-        UUID adminRoleId = createRole(creatorId, clientId, false, companyId1, "admin", HttpStatus.CREATED);
+        UUID userRoleId = createRoleByOrganizationId(creatorId, clientId, false, companyId1, "user", HttpStatus.CREATED);
+        UUID adminRoleId = createRoleByOrganizationId(creatorId, clientId, false, companyId1, "admin", HttpStatus.CREATED);
 
         List<Map> mapList = Arrays.asList(Map.of("clientId", clientId.toString(),
                         "userId", userId1.toString(),

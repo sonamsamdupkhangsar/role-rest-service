@@ -30,6 +30,8 @@ public class Router {
                         .and(accept(MediaType.APPLICATION_JSON)), handler::deleteRole)
                 .andRoute(GET("/roles/organization/{organizationId}")
                         .and(accept(MediaType.APPLICATION_JSON)), handler::getOrganizationRoles)
+                .andRoute(GET("/roles/user/{userId}")
+                        .and(accept(MediaType.APPLICATION_JSON)), handler::getUserRoles)
                 .andRoute(GET("/roles/{id}")
                         .and(accept(MediaType.APPLICATION_JSON)), handler::getRole)
                 //.andRoute(PUT("/roles/users"), handler::updateUser)

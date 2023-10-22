@@ -25,10 +25,12 @@ spring:
     name: sa
     password:
 
-POSTGRES_USERNAME: dusername
-POSTGRES_DBNAME: dbname
-POSTGRES_SERVICE: dservice
-POSTGRES_PASSWORD: dpassword
+
+POSTGRES_USERNAME: test
+POSTGRES_PASSWORD: test
+POSTGRES_DBNAME: role
+POSTGRES_SERVICE: localhost:5432
+DB_SSLMODE: disable
 
 permitpath:
   - path: /roles/api/health/*
