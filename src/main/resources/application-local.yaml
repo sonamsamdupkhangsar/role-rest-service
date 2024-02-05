@@ -18,6 +18,9 @@ eureka:
     serviceUrl:
       defaultZone: http://${EUREKA_USER}:${EUREKA_PASSWORD}@${EUREKA_HOST}/eureka
 
-ISSUER_URI: http://api-gateway:8080/issuer
+
+ISSUER_ADDRESS: http://api-gateway:9001
+
+ISSUER_URI: ${ISSUER_ADDRESS}/issuer
 OAUTH_AUDIENCES: oauth-client
-JWT_SET_URI: http://api-gateway:8080/issuer/.well-known/jwks.json
+JWT_SET_URI: ${ISSUER_ADDRESS}/issuer/.well-known/jwks.json
