@@ -118,10 +118,12 @@ public class Handler {
     }
 
     public Mono<ServerResponse> addRoleUser(ServerRequest serverRequest) {
-        LOG.info("delete role");
+        LOG.info("add role client user");
 
         return organizationRole.addRoleClientUser(serverRequest.bodyToMono(Map.class))
-                .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(Map.of("message", s)))
+                .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(
+                        Map.of("message", "created new role client user row",
+                                "object", s)))
                 .onErrorResume(throwable -> {
                     LOG.error("add role user failed: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
@@ -131,7 +133,7 @@ public class Handler {
 
 
     public Mono<ServerResponse> updateRoleUser(ServerRequest serverRequest) {
-        LOG.info("delete role");
+        LOG.info("update role client user");
 
         return organizationRole.updateRoleClientUser(serverRequest.bodyToMono(Map.class))
                 .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(Map.of("message", s)))
@@ -155,12 +157,17 @@ public class Handler {
                 });
     }
 
-    public Mono<ServerResponse> getRoleUsers(ServerRequest serverRequest) {
+    /**
+     * get all RoleClientUsers by clientId
+     * @param serverRequest
+     * @return
+     */
+    public Mono<ServerResponse> getRoleClientUsersByClientId(ServerRequest serverRequest) {
         LOG.info("get role users");
 
         Pageable pageable = Util.getPageable(serverRequest);
 
-        return organizationRole.getRoleUsers(serverRequest.pathVariable("clientId"), pageable)
+        return organizationRole.getRoleClientUsersByClientId(serverRequest.pathVariable("clientId"), pageable)
                 .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(s))
                 .onErrorResume(throwable -> {
                     LOG.error("get role user call failed, error: {}", throwable.getMessage());
@@ -169,10 +176,15 @@ public class Handler {
                 });
     }
 
-    public Mono<ServerResponse> getRoleForUser(ServerRequest serverRequest) {
+    /**
+     * get RoleClientUsers by clientId and userId
+     * @param serverRequest
+     * @return
+     */
+    public Mono<ServerResponse> getRoleForUsersByClientAndUserId(ServerRequest serverRequest) {
         LOG.info("get role for User");
 
-        return organizationRole.getRoleForUser(serverRequest.pathVariable("clientId"),
+        return organizationRole.getRoleClientUsersByClientAndUserId(serverRequest.pathVariable("clientId"),
                         UUID.fromString(serverRequest.pathVariable("userId")))
                 .collectList()
                 .flatMap(s -> {

@@ -1,12 +1,16 @@
 package me.sonam.role;
 
+import arrow.typeclasses.Hash;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import me.sonam.role.repo.RoleOrganizationRepository;
 import me.sonam.role.repo.RoleRepository;
 import me.sonam.role.repo.RoleClientUserRepository;
 import me.sonam.role.repo.RoleUserRepository;
+import me.sonam.role.repo.entity.RoleClientUser;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +21,7 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -358,7 +363,7 @@ public class RoleServiceTest {
     }
 
     @Test
-    public void roleUserAssociation() {
+    public void roleClientUserAssociation() {
         UUID clientId = UUID.randomUUID();
         UUID userId1 = UUID.randomUUID();
         UUID userId2 = UUID.randomUUID();
@@ -375,85 +380,198 @@ public class RoleServiceTest {
 
         List<Map> mapList = Arrays.asList(Map.of("clientId", clientId.toString(),
                         "userId", userId1.toString(),
-                        "roleId", userRoleId.toString(),
-                        "action", "add"),
+                        "roleId", userRoleId.toString()),
                 Map.of("clientId", clientId.toString(),
                         "userId", userId2.toString(),
-                        "roleId", adminRoleId.toString(),
-                        "action", "add"),
+                        "roleId", adminRoleId.toString()),
                 Map.of("clientId", clientId.toString(),
                         "userId", userId3.toString(),
-                        "roleId", userRoleId.toString(),
-                        "action", "add"));
-
-        LOG.info("add users to role");
-        final String authenticationId = "sonam";
-        Jwt jwt = jwt(authenticationId);
-        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
-
-
-        mapList.forEach(map -> {
-                    EntityExchangeResult<String> entityExchangeResult = webTestClient.post().uri("/roles/user")
-                            .headers(addJwt(jwt)).bodyValue(map)
-                            .exchange().expectStatus().isOk().expectBody(String.class).returnResult();
-                    LOG.info("result: {}", entityExchangeResult.getResponseBody());
-                });
-
-        Map<String, String> map = Map.of(userId1.toString(), "user", userId2.toString(), "admin", userId3.toString(), "user");
-        LOG.info("assert the roles with the userId");
-        assertRoles(map, jwt, clientId);
-
-        modifyRoles(clientId, userId1, userId2, userId3, adminRoleId, userRoleId);
-    }
-    private void modifyRoles(UUID clientId, UUID userId1, UUID userId2, UUID userId3, UUID adminRoleId, UUID userRoleId) {
-        LOG.info("test with modified roles");
+                        "roleId", userRoleId.toString()));
 
         Map<String, String> map1 = Map.of("clientId", clientId.toString(),
                 "userId", userId1.toString(),
-                "roleId", adminRoleId.toString());
-
-        var map2 = Map.of("clientId", clientId.toString(),
-                "userId", userId3.toString(),
-                "roleId", adminRoleId.toString());
-
-        var map3 = Map.of("clientId", clientId.toString(),
-                "userId", userId3.toString(),
                 "roleId", userRoleId.toString());
+
+        Map<String, String> map2 = Map.of("clientId", clientId.toString(),
+                        "userId", userId2.toString(),
+                        "roleId", adminRoleId.toString());
+
+        Map<String, String> map3 = Map.of("clientId", clientId.toString(),
+                        "userId", userId3.toString(),
+                        "roleId", userRoleId.toString());
 
         LOG.info("add users to role");
         final String authenticationId = "sonam";
         Jwt jwt = jwt(authenticationId);
         when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
 
-        LOG.info("update role user");
+        List<RoleClientUser> roleClientUsers = new ArrayList<>();
+        ObjectMapper mapper = new ObjectMapper();
+
+        RoleClientUser roleClientUser1 = postAddRoleClientUser(jwt, map1, mapper);
+        RoleClientUser roleClientUser2 = postAddRoleClientUser(jwt, map2, mapper);
+        RoleClientUser roleClientUser3 = postAddRoleClientUser(jwt, map3, mapper);
+
+        RoleClientUser roleClientUserUpdate = new RoleClientUser(roleClientUser1.getId(), roleClientUser1.getClientId(),
+                roleClientUser1.getUserId(), adminRoleId);
+
+        updateRoleClientUser(jwt, roleClientUserUpdate, mapper);
+        roleClientUserUpdate = new RoleClientUser(roleClientUser2.getId(), roleClientUser2.getClientId(),
+                roleClientUser2.getUserId(), userRoleId);
+
+        updateRoleClientUser(jwt, roleClientUserUpdate, mapper);
+
+        roleClientUserUpdate = new RoleClientUser(roleClientUser3.getId(), roleClientUser3.getClientId(),
+                roleClientUser3.getUserId(), adminRoleId);
+
+        updateRoleClientUser(jwt, roleClientUserUpdate, mapper);
+
+        Map<UUID, RoleClientUser> map = getUserRoleClient(jwt, clientId,  mapper);
+        assertThat(map.get(roleClientUser1.getId())).isNotNull();
+        assertThat(map.get(roleClientUser1.getId()).getRoleId()).isNotNull();
+        assertThat(map.get(roleClientUser1.getId()).getRoleId()).isEqualTo(adminRoleId);
+
+        assertThat(map.get(roleClientUser2.getId())).isNotNull();
+        assertThat(map.get(roleClientUser2.getId()).getRoleId()).isNotNull();
+        assertThat(map.get(roleClientUser2.getId()).getRoleId()).isEqualTo(userRoleId);
+
+        assertThat(map.get(roleClientUser3.getId())).isNotNull();
+        assertThat(map.get(roleClientUser3.getId()).getRoleId()).isEqualTo(adminRoleId);
+
+
+        deleteRoleClientUser(jwt, adminRoleId, userId3);
+        map = getUserRoleClient(jwt, clientId,  mapper);
+        assertThat(map.size()).isEqualTo(2);
+        assertThat(map.get(roleClientUser3.getId())).isNull();
+        assertThat(map.get(roleClientUser1.getId())).isNotNull();
+        assertThat(map.get(roleClientUser2.getId())).isNotNull();
+
+        deleteRoleClientUser(jwt, adminRoleId, userId1);
+        map = getUserRoleClient(jwt, clientId,  mapper);
+        assertThat(map.size()).isEqualTo(1);
+        assertThat(map.get(roleClientUser3.getId())).isNull();
+        assertThat(map.get(roleClientUser1.getId())).isNull();
+        assertThat(map.get(roleClientUser2.getId())).isNotNull();
+
+        LOG.info("deleteRoleClientUser with not associated userId 2 and admin roleId");
+        deleteRoleClientUser(jwt, adminRoleId, userId2);
+        map = getUserRoleClient(jwt, clientId,  mapper);
+        assertThat(map.size()).isEqualTo(1);
+        assertThat(map.get(roleClientUser3.getId())).isNull();
+        assertThat(map.get(roleClientUser1.getId())).isNull();
+        assertThat(map.get(roleClientUser2.getId())).isNotNull();
+
+        deleteRoleClientUser(jwt, userRoleId, userId2);
+        map = getUserRoleClient(jwt, clientId,  mapper);
+        assertThat(map.size()).isEqualTo(0);
+        assertThat(map.get(roleClientUser3.getId())).isNull();
+        assertThat(map.get(roleClientUser1.getId())).isNull();
+        assertThat(map.get(roleClientUser2.getId())).isNull();
+    }
+
+    //delete RoleClientUser by roleId and userId
+    private void deleteRoleClientUser(final Jwt jwt, UUID adminRoleId, UUID userId) {
+        webTestClient.delete()
+                .uri("/roles/"+adminRoleId+"/users/"+userId).headers(addJwt(jwt))
+                .exchange().expectStatus().isOk().expectBody(Map.class).returnResult();
+    }
+
+    private RoleClientUser postAddRoleClientUser(final Jwt jwt, Map<String, String> map, ObjectMapper mapper) {
+        EntityExchangeResult<Map<String, Object>> entityExchangeResult = webTestClient.post().uri("/roles/user")
+                .headers(addJwt(jwt)).bodyValue(map)
+                .exchange().expectStatus().isOk().expectBody(new ParameterizedTypeReference<Map<String, Object>>(){}).returnResult();
+        LOG.info("response from adding user client roles: {}", entityExchangeResult.getResponseBody());
+        assertThat(entityExchangeResult.getResponseBody().get("message")).isEqualTo("created new role client user row");
+
+        RoleClientUser roleClientUser = mapper.convertValue(entityExchangeResult.getResponseBody().get("object"), RoleClientUser.class);
+
+        assertThat(roleClientUser.getUserId()).isEqualTo(UUID.fromString(map.get("userId")));
+        assertThat(roleClientUser.getClientId()).isEqualTo(map.get("clientId"));
+        assertThat(roleClientUser.getRoleId()).isEqualTo(UUID.fromString(map.get("roleId")));
+        LOG.info("assert role, clientId and userId matches from the map: {}", roleClientUser);
+
+        return roleClientUser;
+    }
+
+    private void updateRoleClientUser(final Jwt jwt, RoleClientUser roleClientUser, ObjectMapper mapper) {
+        LOG.info("update role client user");
+
         EntityExchangeResult<Map> entityExchangeResult = webTestClient.put()
-                .uri("/roles/user").headers(addJwt(jwt)).bodyValue(map1)
+                .uri("/roles/user").headers(addJwt(jwt)).bodyValue(roleClientUser)
                 .exchange().expectStatus().isOk().expectBody(Map.class).returnResult();
         LOG.info("result: {}", entityExchangeResult.getResponseBody());
+        assertThat(entityExchangeResult.getResponseBody().get("message"))
+                    .isEqualTo("updated role client user with id");
+    }
 
-        webTestClient.delete()
+    private Map<UUID, RoleClientUser> getUserRoleClient(final Jwt jwt, final UUID clientId, ObjectMapper mapper) {
+        LOG.info("get role user client by page");
+        EntityExchangeResult<RestPage> pageResult = webTestClient.get().uri("/roles/clientId/" + clientId + "/users")
+                .headers(addJwt(jwt))
+                .exchange().expectStatus().isOk().expectBody(RestPage.class).returnResult();
+
+        LOG.info("pageResult pageable {}", pageResult.getResponseBody().getPageable());
+        LOG.info("assert roles size for clientId: {}", pageResult.getResponseBody().getContent().size());
+        //Assertions.assertThat(pageResult.getResponseBody().getContent().size()).isEqualTo(userIdRoleMap.size());
+
+        Map<UUID, RoleClientUser> map = new HashMap<>();
+        pageResult.getResponseBody().getContent().forEach(o -> {
+            RoleClientUser roleClientUser = mapper.convertValue(o, RoleClientUser.class);
+            LOG.info("roleClientUser from page: {}", roleClientUser);
+            map.put(roleClientUser.getId(), roleClientUser);
+        });
+
+        return map;
+    }
+
+    private void modifyRoles(List<RoleClientUser> roleClientUsers, UUID clientId, UUID userId1, UUID userId2, UUID userId3, UUID adminRoleId, UUID userRoleId) {
+        LOG.info("test with modified roles");
+
+        List<RoleClientUser> updateRoleClientUsers = new ArrayList<>();
+        Map<String, String> map = new HashMap<>();//Map.of(userId1.toString(), "admin", userId3.toString(), "user");
+
+        for(RoleClientUser roleClientUser: roleClientUsers) {
+            if (roleClientUser.getRoleId().equals(userRoleId)) {
+                updateRoleClientUsers.add(new RoleClientUser(roleClientUser.getId(), roleClientUser.getClientId(), roleClientUser.getUserId(), adminRoleId));
+                LOG.info("update role for roleClientUser from {} to {}", roleClientUser.getRoleId(), adminRoleId);
+
+                map.put(roleClientUser.getUserId().toString(), adminRoleId.toString());
+            }
+            else if (roleClientUser.getRoleId().equals(adminRoleId)) {
+                updateRoleClientUsers.add(new RoleClientUser(roleClientUser.getId(), roleClientUser.getClientId(), roleClientUser.getUserId(), userRoleId));
+                LOG.info("update role for roleClientUser from {} to {}", roleClientUser.getRoleId(), userRoleId);
+                map.put(roleClientUser.getUserId().toString(), userRoleId.toString());
+            }
+            else {
+                LOG.error("roleId didn't match to userRoleId or amdinRoleId");
+            }
+
+        }
+
+        LOG.info("add users to role");
+        final String authenticationId = "sonam";
+        Jwt jwt = jwt(authenticationId);
+        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+
+
+
+        LOG.info("update role user");
+        for (RoleClientUser roleClientUser: updateRoleClientUsers) {
+            EntityExchangeResult<Map> entityExchangeResult = webTestClient.put()
+                    .uri("/roles/user").headers(addJwt(jwt)).bodyValue(roleClientUser)
+                    .exchange().expectStatus().isOk().expectBody(Map.class).returnResult();
+            LOG.info("result: {}", entityExchangeResult.getResponseBody());
+            assertThat(entityExchangeResult.getResponseBody().get("message"))
+                    .isEqualTo("updated role client user with id");
+
+        }
+
+        /*webTestClient.delete()
                 .uri("/roles/"+adminRoleId+"/users/"+userId2).headers(addJwt(jwt))
                 .exchange().expectStatus().isOk().expectBody(Map.class).returnResult();
-        LOG.info("result: {}", entityExchangeResult.getResponseBody());
-
-        LOG.info("should get a bad request when attempting to associate another role for userId3 and clientId to a new role");
-        entityExchangeResult = webTestClient.post()
-                .uri("/roles/user").headers(addJwt(jwt)).bodyValue(map2)
-                .exchange().expectStatus().isBadRequest().expectBody(Map.class).returnResult();
-        LOG.info("result: {}", entityExchangeResult.getResponseBody());
-        assertThat(entityExchangeResult.getResponseBody().get("error").toString())
-                .isEqualTo("User already has a role associated with clientId, delete existing one or update it.");
-
-        LOG.info("should get a bad request when attempting to reassociate role for userId3 and clientId to a new role");
-        entityExchangeResult = webTestClient.post()
-                .uri("/roles/user").headers(addJwt(jwt)).bodyValue(map3)
-                .exchange().expectStatus().isBadRequest().expectBody(Map.class).returnResult();
-        LOG.info("result: {}", entityExchangeResult.getResponseBody());
-        assertThat(entityExchangeResult.getResponseBody().get("error").toString())
-                .isEqualTo("User already has a role associated with clientId, delete existing one or update it.");
+*/
 
 
-        Map<String, String> map = Map.of(userId1.toString(), "admin", userId3.toString(), "user");
         LOG.info("assert the roles with the userId");
         assertRoles(map, jwt, clientId);
     }
@@ -466,7 +584,7 @@ public class RoleServiceTest {
                 .exchange().expectStatus().isOk().expectBody(RestPage.class).returnResult();
 
         LOG.info("pageResult pageable {}", pageResult.getResponseBody().getPageable());
-        LOG.info("assert that only roleUser exists");
+        LOG.info("assert roles size for clientId: {}", pageResult.getResponseBody().getContent().size());
         Assertions.assertThat(pageResult.getResponseBody().getContent().size()).isEqualTo(userIdRoleMap.size());
 
 
@@ -517,6 +635,10 @@ public class RoleServiceTest {
                         "roleId", userRoleId.toString(),
                         "action", "add"),
                 Map.of("clientId", clientId.toString(),
+                        "userId", userId1.toString(),
+                        "roleId", adminRoleId.toString(),
+                        "action", "add"),
+                Map.of("clientId", clientId.toString(),
                         "userId", userId2.toString(),
                         "roleId", adminRoleId.toString(),
                         "action", "add"),
@@ -546,12 +668,20 @@ public class RoleServiceTest {
         LOG.info("list {}", roleByClientIdAndUserIdResult.getResponseBody());
 
         List<LinkedHashMap> list = roleByClientIdAndUserIdResult.getResponseBody();
+        assertThat(list.size()).isEqualTo(2);// 2 roles should be found admin and user
         LinkedHashMap<String, String> linkedHashMap = list.get(0);
 
         LOG.info("role: {}", linkedHashMap);
-        LOG.info("got roleUser for clientId and userId: {}", linkedHashMap);
         assertThat(linkedHashMap.get("roleId")).isNotNull();
         assertThat(linkedHashMap.get("roleName")).isEqualTo("user");
+        assertThat(linkedHashMap.get("clientId")).isEqualTo(clientId.toString());
+        assertThat(linkedHashMap.get("userId")).isEqualTo(userId1.toString());
+
+        linkedHashMap = list.get(1);
+
+        LOG.info("role: {}", linkedHashMap);
+        assertThat(linkedHashMap.get("roleId")).isNotNull();
+        assertThat(linkedHashMap.get("roleName")).isEqualTo("admin");
         assertThat(linkedHashMap.get("clientId")).isEqualTo(clientId.toString());
         assertThat(linkedHashMap.get("userId")).isEqualTo(userId1.toString());
     }

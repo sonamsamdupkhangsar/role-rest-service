@@ -36,9 +36,9 @@ public class Router {
                         .and(accept(MediaType.APPLICATION_JSON)), handler::getRole)
                 //.andRoute(PUT("/roles/users"), handler::updateUser)
                 .andRoute(GET("/roles/clientId/{clientId}/users")
-                        .and(accept(MediaType.APPLICATION_JSON)), handler::getRoleUsers)
+                        .and(accept(MediaType.APPLICATION_JSON)), handler::getRoleClientUsersByClientId)// get RoleClientUsers by clientId
                 .andRoute(GET("/roles/clientId/{clientId}/users/{userId}")
-                        .and(accept(MediaType.APPLICATION_JSON)), handler::getRoleForUser)
+                        .and(accept(MediaType.APPLICATION_JSON)), handler::getRoleForUsersByClientAndUserId)
                 .andRoute(POST("/roles/user").and(accept(MediaType.APPLICATION_JSON)), handler::addRoleUser)
                 .andRoute(PUT("/roles/user").and(accept(MediaType.APPLICATION_JSON)), handler::updateRoleUser)
                 .andRoute(DELETE("/roles/{roleId}/users/{userId}").and(accept(MediaType.APPLICATION_JSON)), handler::deleteRoleUser);
