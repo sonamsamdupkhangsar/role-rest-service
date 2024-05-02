@@ -2,24 +2,23 @@ package me.sonam.role.handler.service;
 
 import me.sonam.role.handler.OrganizationRole;
 import me.sonam.role.handler.RoleException;
-import me.sonam.role.repo.RoleOrganizationRepository;
-import me.sonam.role.repo.RoleRepository;
-import me.sonam.role.repo.RoleClientUserRepository;
-import me.sonam.role.repo.RoleUserRepository;
-import me.sonam.role.repo.entity.Role;
-import me.sonam.role.repo.entity.RoleOrganization;
-import me.sonam.role.repo.entity.RoleClientUser;
-import me.sonam.role.repo.entity.RoleUser;
+import me.sonam.role.handler.service.carrier.ClientOrganizationUserWithRole;
+import me.sonam.role.handler.service.carrier.User;
+import me.sonam.role.repo.*;
+import me.sonam.role.repo.entity.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.function.Tuple2;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 @Service
@@ -27,7 +26,7 @@ public class OrganizationRoleService implements OrganizationRole {
     private static final Logger LOG = LoggerFactory.getLogger(OrganizationRoleService.class);
 
     @Autowired
-    private RoleClientUserRepository roleClientUserRepository;
+    private ClientUserRoleRepository clientUserRoleRepository;
 
     @Autowired
     private RoleRepository roleRepository;
@@ -37,24 +36,51 @@ public class OrganizationRoleService implements OrganizationRole {
     @Autowired
     private RoleUserRepository roleUserRepository;
 
+    @Autowired
+    private RoleClientOrganizationUserRepository roleClientOrganizationUserRepository;
+
     @Override
     public Mono<Page<Role>> getOrganizationRoles(UUID organizationId, Pageable pageable) {
-        LOG.info("get organization roles");
+        LOG.info("get organization roles with pageable pageNumber: {}, pageSize: {}, sort: {}",
+                pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
 
-        return roleRepository.findByOrganizationId(organizationId, pageable)
+        Pageable pageable1 = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        LOG.info("construct new pageable: {}", pageable1);
+        //cross join didn't work so find by organizationId and get role
+
+        return roleOrganizationRepository.findByOrganizationId(organizationId, pageable1)
+                .switchIfEmpty(Flux.empty())
+                .flatMap(roleOrganization -> roleRepository.findById(roleOrganization.getRoleId()))
                 .collectList()
+                .doOnNext(roles -> LOG.info("got roles: {}", roles))
                 .zipWith(roleOrganizationRepository.countByOrganizationId(organizationId))
                 .map(objects -> new PageImpl<>(objects.getT1(), pageable, objects.getT2()));
-
     }
 
     @Override
-    public Mono<Page<Role>> getUserRoles(UUID userId, Pageable pageable) {
+    public Mono<Page<Role>> getUserAssociatedRoles(UUID userId, Pageable pageable) {
         LOG.info("get user roles");
 
-        return roleRepository.findByUserId(userId, pageable)
+        return roleRepository.findRolesForUserId(userId, pageable)
                 .collectList()
                 .zipWith(roleUserRepository.countByUserId(userId))
+                .map(objects -> new PageImpl<>(objects.getT1(), pageable, objects.getT2()));
+    }
+
+    @Override
+    public Mono<Page<Role>> getRolesByUserId(UUID userId, Pageable pageable) {
+        LOG.info("get roles by userId: {}", userId);
+
+        return roleRepository.findByUserId(userId, pageable)
+                .doOnNext(role -> {
+                            LOG.info("add roleOrganization to role if there is");
+                            roleOrganizationRepository.findByRoleId(role.getId())
+                                    .single().doOnNext(role::setRoleOrganization);
+                        }
+
+                )
+                .collectList()
+                .zipWith(roleRepository.countByUserId(userId))
                 .map(objects -> new PageImpl<>(objects.getT1(), pageable, objects.getT2()));
     }
 
@@ -66,31 +92,39 @@ public class OrganizationRoleService implements OrganizationRole {
     }
 
     @Override
-    public Mono<String> createRole(Mono<Map> mapMono) {
+    public Mono<Role> createRole(Map<String, Object> map) {
         LOG.info("create role");
 
-        return createNewRole(mapMono).map(roleId -> roleId.toString());
+        return createNewRole(map);
     }
 
-    public Mono<UUID> createNewRole(Mono<Map> mapMono) {
+    public Mono<Role> createNewRole(Map<String, Object> map) {
         LOG.info("save role with association");
 
-        return mapMono.switchIfEmpty(Mono.error(new RoleException("map is empty"))).flatMap(map ->
-                {
-                    String roleName = map.get("name").toString();
+        String roleName = map.get("name").toString();
+        if (map.get("userId") == null) {
+            LOG.error("userId not found");
+            return Mono.error(new RoleException("userId not found"));
+        }
+        if (map.get("name") == null) {
+            LOG.error("role name not found");
+            return Mono.error(new RoleException("role name not found"));
+        }
 
-                    if (map.get("organizationId") == null) {
-                        UUID ownerUserId = UUID.fromString(map.get("userId").toString());
-
-                        LOG.info("userId is present");
-                        return createRoleForUser(ownerUserId, roleName);
-                    }
-                    else {
-                        UUID orgId = UUID.fromString(map.get("organizationId").toString());
-                        LOG.info("create role for organization");
-                        return createRoleForOrganization(orgId, roleName);
-                    }
-                });
+        if (map.get("organizationId") == null) {
+            UUID ownerUserId = UUID.fromString(map.get("userId").toString());
+            LOG.info("userId is present");
+            return createRoleForUser(ownerUserId, roleName);
+        }
+        else {
+            if (map.get("organizationId") == null) {
+                return Mono.error(new RoleException("organizationId not found"));
+            }
+            UUID userId = UUID.fromString(map.get("userId").toString());
+            UUID orgId = UUID.fromString(map.get("organizationId").toString());
+            LOG.info("create role for organization");
+            return createRoleForOrganization(orgId, roleName, userId);
+        }
     }
 
     /**
@@ -99,7 +133,7 @@ public class OrganizationRoleService implements OrganizationRole {
      * @param roleName
      * @return
      */
-    private Mono<UUID> createRoleForOrganization(UUID orgId, String roleName) {
+    private Mono<Role> createRoleForOrganization(UUID orgId, String roleName, UUID userId) {
         return roleRepository.findByOrganizationIdAndName(orgId, roleName).hasElements()
                 .flatMap(aBoolean-> {
                     LOG.info("exists by name: {}, is it true? {}", roleName, aBoolean);
@@ -108,21 +142,13 @@ public class OrganizationRoleService implements OrganizationRole {
                     } else {
                         LOG.info("role does not exist, return false");
                         return Mono.just(false);
-            }
+                }
             })
-             .flatMap(aBoolean -> {
-                 var role = new Role(null, roleName);
-                 Mono<Role> roleMono = roleRepository.save(role);
-                 return roleMono.flatMap(role1 -> {
-                     var roleOrganization = new RoleOrganization(null, role.getId(), orgId);
-                     return roleOrganizationRepository.save(roleOrganization).flatMap(roleOrganization1 ->
-                     {
-                         LOG.info("saved roleOrganization relationship: {}", roleOrganization1);
+             .map(aBoolean -> new Role(null, roleName, userId))
+                .flatMap(role -> roleRepository.save(role))
+                .flatMap(role -> Mono.just(new RoleOrganization(null, role.getId(), orgId)).zipWith(Mono.just(role)))
+                .flatMap(objects -> roleOrganizationRepository.save(objects.getT1()).thenReturn(objects.getT2()));
 
-                         return Mono.just(roleOrganization1.getRoleId());
-                     });
-                 });
-             });
     }
 
     /**
@@ -132,7 +158,8 @@ public class OrganizationRoleService implements OrganizationRole {
      * @return
      */
 
-    private Mono<UUID> createRoleForUser(UUID ownerUserId, String roleName) {
+    private Mono<Role> createRoleForUser(UUID ownerUserId, String roleName) {
+
         return roleRepository.findByUserIdAndName(ownerUserId, roleName).hasElements()
                 .flatMap(aBoolean-> {
                     LOG.info("exists by name: {}, is it true? {}", roleName, aBoolean);
@@ -143,32 +170,56 @@ public class OrganizationRoleService implements OrganizationRole {
                         return Mono.just(false);
                     }
                 }) .flatMap(aBoolean -> {
-                    var role = new Role(null, roleName);
-                    Mono<Role> roleMono = roleRepository.save(role);
-                    return roleMono.flatMap(role1 -> {
-                        LOG.info("role saved, creating roleUser relationship");
-                        var roleUser = new RoleUser(null, role.getId(), ownerUserId);
-                        return roleUserRepository.save(roleUser).flatMap(roleUser1 ->
-                        {
-                            LOG.info("saved roleUser relationship: {}", roleUser1);
-                            return Mono.just(roleUser1.getRoleId());
-                        });
-                    });
+                    var role = new Role(null, roleName, ownerUserId);
+                    //Mono<Role> roleMono =
+                      return      roleRepository.save(role)
+                                    .flatMap(saveRole ->
+                                            Mono.just(new RoleUser(null, saveRole.getId(), ownerUserId))
+                                                    .zipWith(Mono.just(saveRole))
+                                    .flatMap(objects -> roleUserRepository.save(objects.getT1())
+                                            .thenReturn(objects.getT2())));
                 });
     }
 
     /**
      * This only saves the Role entity
-     * @param mapMono
+     * @param
      * @return
      */
     @Override
-    public Mono<String> updateRole(Mono<Map> mapMono) {
+    public Mono<Role> updateRole(Mono<Role> roleMono) {//Mono<Map<String, Object>> mapMono) {
         LOG.info("update role");
 
-        return mapMono.flatMap(map ->
-            roleRepository.save(new Role(UUID.fromString(map.get("id").toString()), map.get("name").toString())))
-                .flatMap(role -> Mono.just(role.getId().toString()));
+        /*return roleMono.flatMap(role -> roleRepository.save(role).doOnNext(role1 ->
+                        role1.setRoleOrganization(role.getRoleOrganization())))
+                .flatMap(role1 -> Mono.just(role1.getRoleOrganization()).zipWith(Mono.just(role1)))
+                .flatMap(objects -> roleOrganizationRepository.save(objects.getT1()).thenReturn(objects.getT2()));
+        */
+        return roleMono.flatMap(role -> roleRepository.save(role)
+                        .flatMap(savedRole -> {
+                            LOG.info("savedRole: {}\n, role: {}", savedRole, role);
+                            savedRole.setRoleOrganization(role.getRoleOrganization());
+                            return Mono.just(savedRole);
+                        }))
+                .flatMap(updatedRole -> {
+                    if (updatedRole.getRoleOrganization() != null && updatedRole.getRoleOrganization().getOrganizationId() != null) {
+                        LOG.info("save roleOrganization: {}", updatedRole.getRoleOrganization());
+
+                        return roleOrganizationRepository.deleteByRoleId(updatedRole.getId())
+                                .flatMap(rows ->
+                         Mono.just(new RoleOrganization(null, updatedRole.getId(),
+                                        updatedRole.getRoleOrganization().getOrganizationId())))
+                                .flatMap(roleOrganization ->{
+                                    LOG.info("saving roleOrganization: {}", roleOrganization);
+                                    return roleOrganizationRepository.save(roleOrganization);
+                                })
+                                .thenReturn(updatedRole);
+                    }
+                    else {
+                        return Mono.just(updatedRole);
+                    }
+                });
+
     }
 
     @Override
@@ -176,7 +227,7 @@ public class OrganizationRoleService implements OrganizationRole {
         LOG.info("delete role by id");
 
         LOG.info("delete user association and then delete role");
-        return roleClientUserRepository.deleteByRoleId(roleId).flatMap(integer -> {
+        return clientUserRoleRepository.deleteByRoleId(roleId).flatMap(integer -> {
             LOG.info("delete by role id in roleUser");
             roleRepository.deleteById(roleId).subscribe();
             LOG.info("delete from roleOrganization and roleUser if there is any association");
@@ -197,9 +248,11 @@ public class OrganizationRoleService implements OrganizationRole {
      */
 
     @Override
-    public Mono<RoleClientUser> addRoleClientUser(Mono<Map> mapMono) {
+    public Mono<ClientUserRole> addClientUserRole(Mono<Map> mapMono) {
         LOG.info("add role user");
-        return mapMono.flatMap(map -> roleClientUserRepository.existsByClientIdAndRoleIdAndUserId(
+        return mapMono.flatMap(map -> {
+            LOG.info("map: {}", map);
+            return clientUserRoleRepository.existsByClientIdAndRoleIdAndUserId(
                         map.get("clientId").toString(),
                         UUID.fromString(map.get("roleId").toString()), UUID.fromString(map.get("userId").toString()))
                 .doOnNext(aBoolean -> LOG.info("exists by clientIdAndRoleIdAndUserId already?: {}", aBoolean))
@@ -209,13 +262,13 @@ public class OrganizationRoleService implements OrganizationRole {
                                 " delete existing one or update it.")))
                 .map(aBoolean -> {
                     LOG.info("return a role user to be added");
-                    return   new RoleClientUser
+                    return   new ClientUserRole
                             (null, map.get("clientId").toString(),
                                     UUID.fromString(map.get("userId").toString()),
                                     UUID.fromString(map.get("roleId").toString()));
 
                 })
-                .flatMap(roleClientUser -> roleClientUserRepository.save(roleClientUser)));
+                .flatMap(clientUserRole -> clientUserRoleRepository.save(clientUserRole));});
 
                 //.flatMap(roleClientUser -> Mono.just("created new role client user row"));
     }
@@ -226,7 +279,7 @@ public class OrganizationRoleService implements OrganizationRole {
      * @return
      */
     @Override
-    public Mono<String> updateRoleClientUser(Mono<Map> mapMono) {
+    public Mono<String> updateClientUserRole(Mono<Map> mapMono) {
         LOG.info("update roleClientUser");
 
         return mapMono.flatMap(map -> Mono.just(map.get("id").toString())
@@ -234,20 +287,20 @@ public class OrganizationRoleService implements OrganizationRole {
                             //in update the applicationUser with appId and userId must exist
                             .flatMap(s -> {
                                 LOG.info("id: {}",s);
-                                return roleClientUserRepository.findById(UUID.fromString(s));}
+                                return clientUserRoleRepository.findById(UUID.fromString(s));}
                             )
                         .switchIfEmpty(Mono.error(new RoleException("no roleClientUser user found with id: "+ map.get("id"))))
-                            .map(roleClientUser -> {
+                            .map(clientUserRole -> {
                                 LOG.info("create roleClientUser");
-                              return  new RoleClientUser(roleClientUser.getId(),
+                              return  new ClientUserRole(clientUserRole.getId(),
                                         map.get("clientId").toString(),
                                         UUID.fromString(map.get("userId").toString()),
                                         UUID.fromString(map.get("roleId").toString()));
 
                             })
-                            .flatMap(roleClientUser -> {
+                            .flatMap(clientUserRole -> {
                                 LOG.info("save roleUser");
-                                return roleClientUserRepository.save(roleClientUser);
+                                return clientUserRoleRepository.save(clientUserRole);
                             }).thenReturn("updated role client user"))
                 .thenReturn("updated role client user with id");
 
@@ -260,10 +313,10 @@ public class OrganizationRoleService implements OrganizationRole {
      * @return
      */
     @Override
-    public Mono<String> deleteRoleClientUser(UUID roleId, UUID userId) {
-        LOG.info("deleting roleUser using userId and roleId");
-        return roleClientUserRepository.deleteByRoleIdAndUserId(roleId, userId).flatMap(rows -> {
-            LOG.info("deleted {} rows by roleId and userId", rows);
+    public Mono<String> deleteClientUserRole(UUID roleId, UUID userId) {
+        LOG.info("deleting clientUserRole by userId and roleId");
+        return clientUserRoleRepository.deleteByRoleIdAndUserId(roleId, userId).flatMap(rows -> {
+            //LOG.info("deleted {} rows by roleId and userId", rows);
             return Mono.just("row deleted");
         });
     }
@@ -276,23 +329,23 @@ public class OrganizationRoleService implements OrganizationRole {
      */
 
     @Override
-    public Mono<Page<RoleClientUser>> getRoleClientUsersByClientId(String clientId, Pageable pageable) {
+    public Mono<Page<ClientUserRole>> getClientUserRolePage(String clientId, Pageable pageable) {
         LOG.info("get users assigned to clientId");
 
-        return roleClientUserRepository.findByClientId(clientId, pageable)
-                .flatMap(roleClientUser -> {
-                    if (roleClientUser.getRoleId() != null) {
-                        return roleRepository.findById(roleClientUser.getRoleId()).flatMap(role -> {
-                            roleClientUser.setRoleName(role.getName());
-                            return Mono.just(roleClientUser);
+        return clientUserRoleRepository.findByClientId(clientId, pageable)
+                .flatMap(clientUserRole -> {
+                    if (clientUserRole.getRoleId() != null) {
+                        return roleRepository.findById(clientUserRole.getRoleId()).flatMap(role -> {
+                            clientUserRole.setRoleName(role.getName());
+                            return Mono.just(clientUserRole);
                         });
                     }
                     else {
-                        return Mono.just(roleClientUser);
+                        return Mono.just(clientUserRole);
                     }
                 })
                 .collectList()
-                .zipWith(roleClientUserRepository.countByClientId(clientId))
+                .zipWith(clientUserRoleRepository.countByClientId(clientId))
 
                 .map(objects -> new PageImpl<>(objects.getT1(), pageable, objects.getT2()));
     }
@@ -304,25 +357,64 @@ public class OrganizationRoleService implements OrganizationRole {
      * @return
      */
     @Override
-    public Flux<RoleClientUser> getRoleClientUsersByClientAndUserId(String clientId, UUID userId) {
+    public Flux<ClientUserRole> getClientUserRoles(String clientId, UUID userId) {
         LOG.info("get role for user by clientId {} and userId: {}", clientId, userId);
 
-        return roleClientUserRepository.findByClientIdAndUserId(clientId, userId)
-                .flatMap(roleClientUser -> {
+        return clientUserRoleRepository.findByClientIdAndUserId(clientId, userId)
+                .flatMap(clientUserRole -> {
                     LOG.info("found roleUser by clientId {} and userId: {}", clientId, userId);
 
-                            if (roleClientUser.getRoleId() != null) {
-                                return roleRepository.findById(roleClientUser.getRoleId())
+                            if (clientUserRole.getRoleId() != null) {
+                                return roleRepository.findById(clientUserRole.getRoleId())
                                         .flatMap(role -> {
                                             LOG.info("setting roleName: {}", role.getName());
-                                            roleClientUser.setRoleName(role.getName());
-                                            return Mono.just(roleClientUser);
+                                            clientUserRole.setRoleName(role.getName());
+                                            return Mono.just(clientUserRole);
                                         });
                             } else {
-                                LOG.info("roleId is null just retrun roleUser: {}", roleClientUser);
-                                return Mono.just(roleClientUser);
+                                LOG.info("roleId is null just retrun roleUser: {}", clientUserRole);
+                                return Mono.just(clientUserRole);
                             }
                         }
                 ).switchIfEmpty(Mono.error(new RoleException("no roleuser found by clientId and userId")));
     }
+
+    @Override
+    public Mono<List<ClientOrganizationUserWithRole>> getClientOrganizationUserWithRoles(UUID clientId, UUID orgId, List<UUID> userUuids) {
+        LOG.info("get roles by clientId, orgId, and userIds matching from the userIds list");
+
+        return roleClientOrganizationUserRepository.findByClientIdAndOrganizationIdAndUserIdIn(clientId, orgId, userUuids)
+               // .switchIfEmpty(Mono.error(new RoleException("No role assigned found for clientId, organizationId and userIds"))) //if no rows are found
+                .switchIfEmpty(Flux.just())
+                .flatMap(roleClientOrganizationUser -> {
+                    LOG.info("roleClientOrganizationUser: {}", roleClientOrganizationUser);
+                    return roleRepository.findById(roleClientOrganizationUser.getRoleId())
+                        .zipWith(Mono.just(new ClientOrganizationUserWithRole(roleClientOrganizationUser.getId(),
+                                roleClientOrganizationUser.getClientId(),
+                                roleClientOrganizationUser.getOrganizationId(), new User(roleClientOrganizationUser.getUserId(),null))));})
+                .doOnNext(objects -> {
+                    LOG.info("objects: {}", objects);
+                    objects.getT2().getUser().setRole(objects.getT1());
+                })
+                .map(Tuple2::getT2)
+                .collectList();
+
+    }
+
+
+    @Override
+    public Mono<ClientOrganizationUserRole> addClientOrganizationUserRole(UUID clientId, UUID orgId, UUID roleId, UUID userId) {
+        LOG.info("add role by clientId, orgId, and userId");
+
+        return roleClientOrganizationUserRepository.save(new ClientOrganizationUserRole(null, roleId, clientId, orgId, userId));
+    }
+
+    @Override
+    public Mono<String> deleteClientOrganizationUserRoleById(UUID id) {
+        LOG.info("delete by roleClientUserUser by id: {}", id);
+
+        return roleClientOrganizationUserRepository.deleteById(id).thenReturn("roleClientOrganizationUser deleted");
+    }
 }
+
+

@@ -11,7 +11,7 @@ import java.util.UUID;
  * This is for associating Role with a clientId, userid using roleId
  */
 @JsonIgnoreProperties(value={"new"}) //ignore new field when marshalling
-public class RoleClientUser implements Persistable<UUID> {
+public class ClientUserRole implements Persistable<UUID> {
     @Id
     private UUID id;
     private String clientId;
@@ -21,7 +21,7 @@ public class RoleClientUser implements Persistable<UUID> {
     private String roleName;
     @Transient
     private boolean isNew;
-    public RoleClientUser() {
+    public ClientUserRole() {
 
     }
     @Override
@@ -36,7 +36,7 @@ public class RoleClientUser implements Persistable<UUID> {
                 '}';
     }
 
-    public RoleClientUser(UUID id, String clientId, UUID userId, UUID roleId) {
+    public ClientUserRole(UUID id, String clientId, UUID userId, UUID roleId) {
         if (id == null) {
             this.id = UUID.randomUUID();
             this.isNew = true;

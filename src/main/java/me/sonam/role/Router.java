@@ -22,26 +22,29 @@ public class Router {
     @Bean
     public RouterFunction<ServerResponse> route(Handler handler) {
         LOG.info("building router function");
-        return RouterFunctions.route(POST("/roles").and(accept(MediaType.APPLICATION_JSON)),
-                handler::createRole)
-                .andRoute(PUT("/roles")
-                        .and(accept(MediaType.APPLICATION_JSON)), handler::updateRole)
-                .andRoute(DELETE("/roles/{id}")
-                        .and(accept(MediaType.APPLICATION_JSON)), handler::deleteRole)
-                .andRoute(GET("/roles/organization/{organizationId}")
-                        .and(accept(MediaType.APPLICATION_JSON)), handler::getOrganizationRoles)
-                .andRoute(GET("/roles/user/{userId}")
-                        .and(accept(MediaType.APPLICATION_JSON)), handler::getUserRoles)
-                .andRoute(GET("/roles/{id}")
-                        .and(accept(MediaType.APPLICATION_JSON)), handler::getRole)
-                //.andRoute(PUT("/roles/users"), handler::updateUser)
-                .andRoute(GET("/roles/clientId/{clientId}/users")
-                        .and(accept(MediaType.APPLICATION_JSON)), handler::getRoleClientUsersByClientId)// get RoleClientUsers by clientId
-                .andRoute(GET("/roles/clientId/{clientId}/users/{userId}")
-                        .and(accept(MediaType.APPLICATION_JSON)), handler::getRoleForUsersByClientAndUserId)
-                .andRoute(POST("/roles/user").and(accept(MediaType.APPLICATION_JSON)), handler::addRoleUser)
-                .andRoute(PUT("/roles/user").and(accept(MediaType.APPLICATION_JSON)), handler::updateRoleUser)
-                .andRoute(DELETE("/roles/{roleId}/users/{userId}").and(accept(MediaType.APPLICATION_JSON)), handler::deleteRoleUser);
+        return RouterFunctions
+                .route(POST("/roles").and(accept(MediaType.APPLICATION_JSON)), handler::createRole)
+                .andRoute(PUT("/roles").and(accept(MediaType.APPLICATION_JSON)), handler::updateRole)
+                .andRoute(GET("/roles/{id}").and(accept(MediaType.APPLICATION_JSON)), handler::getRole)
+                .andRoute(DELETE("/roles/{id}").and(accept(MediaType.APPLICATION_JSON)), handler::deleteRole)
+
+                //.andRoute(GET("/roles/{id}/organization-id").and(accept(MediaType.APPLICATION_JSON)), handler::getRoleClientUsersByClientAndUserId)
+                .andRoute(GET("/roles/organizations/{organizationId}").and(accept(MediaType.APPLICATION_JSON)), handler::getOrganizationRoles) //returns page of roles for organization-id
+                .andRoute(GET("/roles/users/{userId}").and(accept(MediaType.APPLICATION_JSON)), handler::getRolesForUser)  //gets roles for user by user-id
+                .andRoute(GET("/roles/user-id/{userId}"), handler::getRolesByUserId)
+
+                .andRoute(GET("/roles/client-users/client-id/{clientId}").and(accept(MediaType.APPLICATION_JSON)), handler::getClientUserRolePage)// get RoleClientUsers by clientId
+                //this method is called in authentication-rest-service in authentication
+                .andRoute(GET("/roles/client-users/client-id/{clientId}/user-id/{userId}").and(accept(MediaType.APPLICATION_JSON)), handler::getClientUserRoles) // get RoleClientUsers by clientId and userId
+
+                .andRoute(POST("/roles/client-users").and(accept(MediaType.APPLICATION_JSON)), handler::addClientUserRole)
+                .andRoute(PUT("/roles/client-users").and(accept(MediaType.APPLICATION_JSON)), handler::updateClientUserRole)
+                .andRoute(DELETE("/roles/client-users/role-id/{roleId}/user-id/{userId}").and(accept(MediaType.APPLICATION_JSON)), handler::deleteClientUserRole)
+
+                .andRoute(POST("/roles/client-organization-users").and(accept(MediaType.APPLICATION_JSON)), handler::addClientOrganizationUserRole)
+                .andRoute(DELETE("/roles/client-organization-users/{id}").and(accept(MediaType.APPLICATION_JSON)), handler::deleteClientOrganizationUserRoleById)
+                .andRoute(GET("/roles/client-organization-users/client-id/{clientId}/organization-id/{organizationId}/user-id/{userIds}").and(accept(MediaType.APPLICATION_JSON)), handler::getClientOrganziationUserWithRoles);
+
 
     }
 }
