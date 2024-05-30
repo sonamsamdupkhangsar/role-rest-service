@@ -599,7 +599,7 @@ public class RoleServiceTest {
         }
         LOG.info("after removal of last , {}", csvUuid);
 
-        return webTestClient.get().uri("/roles/client-organization-users/client-id/"+clientId+"/organization-id/"+organizationId+"/user-id/"+ csvUuid)
+        return webTestClient.get().uri("/roles/client-organization-users/client-id/"+clientId+"/organization-id/"+organizationId+"/user-ids/"+ csvUuid)
                 .headers(addJwt(jwt)).exchange().expectStatus().isOk().expectBody(new ParameterizedTypeReference<List<ClientOrganizationUserWithRole>>() {})
                 .returnResult().getResponseBody();
     }
