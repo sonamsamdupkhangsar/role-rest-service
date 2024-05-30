@@ -10,6 +10,7 @@ import me.sonam.role.repo.RoleUserRepository;
 import me.sonam.role.repo.entity.ClientOrganizationUserRole;
 import me.sonam.role.repo.entity.Role;
 import me.sonam.role.repo.entity.ClientUserRole;
+import me.sonam.role.repo.entity.RoleOrganization;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -339,6 +340,63 @@ public class RoleServiceTest {
 
         assertThat(listOfNames.contains("manager")).isTrue();
     }
+
+    @Test
+    public void addRoleToOrganization() {
+        LOG.info("add role to organization");
+
+        UUID creatorId = UUID.randomUUID();
+        UUID clientId = UUID.randomUUID();
+
+        Role userRoleId = createRoleByUser(creatorId, clientId, false, "user", HttpStatus.CREATED);
+
+        final String authenticationId = "sonam";
+        Jwt jwt = jwt(authenticationId);
+        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+
+        UUID roleId = userRoleId.getId();
+        UUID organizationId = UUID.randomUUID();
+
+        Map<String, Object> map = new HashMap<>();
+        map.put("roleId", roleId);
+        map.put("organizationId", organizationId);
+
+        EntityExchangeResult<RoleOrganization> entityExchangeResult = webTestClient.post().uri("/roles/organizations")
+                .headers(addJwt(jwt)).bodyValue(map).exchange().expectStatus().isOk().expectBody(RoleOrganization.class)
+                .returnResult();
+
+        RoleOrganization roleOrganization = entityExchangeResult.getResponseBody();
+
+        assertThat(roleOrganization.getId()).isNotNull();
+
+        EntityExchangeResult<Role> roleResult = webTestClient.get().uri("/roles/"+userRoleId.getId())
+                .headers(addJwt(jwt)).exchange().expectStatus().isOk().expectBody(Role.class)
+                .returnResult();
+        LOG.info("retrieved role by id: {}", roleResult.getResponseBody());
+
+        assertThat(roleResult.getResponseBody().getId()).isEqualTo(userRoleId.getId());
+        assertThat(roleResult.getResponseBody().getRoleOrganization()).isNotNull();
+        assertThat(roleResult.getResponseBody().getName()).isEqualTo("user");
+
+
+
+        LOG.info("delete the created role organization");
+        EntityExchangeResult<Map<String, String>> mapResult = webTestClient.delete().uri("/roles/"+userRoleId.getId()+"/organizations/"+roleOrganization.getOrganizationId())
+                .headers(addJwt(jwt)).exchange().expectStatus().isOk().expectBody(new ParameterizedTypeReference<Map<String, String>>(){})
+                .returnResult();
+
+        assertThat(mapResult.getResponseBody().get("message")).isEqualTo("roleOrganization deleted");
+
+        mapResult = webTestClient.delete().uri("/roles/"+ userRoleId.getId()+"/organizations/"+roleOrganization.getOrganizationId())
+                .headers(addJwt(jwt)).exchange().expectStatus().isBadRequest().expectBody(new ParameterizedTypeReference<Map<String, String>>(){})
+                .returnResult();
+
+        assertThat(mapResult.getResponseBody().get("error")).isNotEmpty();
+
+
+    }
+
+
 
     public Page<Role> getRolesOwnedByOrganization(UUID organizationId) {
         final String authenticationId = "sonam";

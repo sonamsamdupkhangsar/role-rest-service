@@ -30,8 +30,11 @@ public class Router {
 
                 //.andRoute(GET("/roles/{id}/organization-id").and(accept(MediaType.APPLICATION_JSON)), handler::getRoleClientUsersByClientAndUserId)
                 .andRoute(GET("/roles/organizations/{organizationId}").and(accept(MediaType.APPLICATION_JSON)), handler::getOrganizationRoles) //returns page of roles for organization-id
+                .andRoute(POST("/roles/organizations").and(accept(MediaType.APPLICATION_JSON)), handler::addRoleToOrganization)
+                .andRoute(DELETE("/roles/{roleId}/organizations/{organizationId}").and(accept(MediaType.APPLICATION_JSON)), handler::deleteRoleOrganization)
                 .andRoute(GET("/roles/users/{userId}").and(accept(MediaType.APPLICATION_JSON)), handler::getRolesForUser)  //gets roles for user by user-id
                 .andRoute(GET("/roles/user-id/{userId}"), handler::getRolesByUserId)
+
 
                 .andRoute(GET("/roles/client-users/client-id/{clientId}").and(accept(MediaType.APPLICATION_JSON)), handler::getClientUserRolePage)// get RoleClientUsers by clientId
                 //this method is called in authentication-rest-service in authentication
@@ -43,7 +46,7 @@ public class Router {
 
                 .andRoute(POST("/roles/client-organization-users").and(accept(MediaType.APPLICATION_JSON)), handler::addClientOrganizationUserRole)
                 .andRoute(DELETE("/roles/client-organization-users/{id}").and(accept(MediaType.APPLICATION_JSON)), handler::deleteClientOrganizationUserRoleById)
-                .andRoute(GET("/roles/client-organization-users/client-id/{clientId}/organization-id/{organizationId}/user-id/{userIds}").and(accept(MediaType.APPLICATION_JSON)), handler::getClientOrganziationUserWithRoles);
+                .andRoute(GET("/roles/client-organization-users/client-id/{clientId}/organization-id/{organizationId}/user-ids/{userIds}").and(accept(MediaType.APPLICATION_JSON)), handler::getClientOrganziationUserWithRoles);
 
 
     }

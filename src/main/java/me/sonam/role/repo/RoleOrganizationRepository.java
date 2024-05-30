@@ -17,6 +17,7 @@ public interface RoleOrganizationRepository extends ReactiveCrudRepository<RoleO
     Mono<Boolean> existsByRoleId(UUID roleId);
     Mono<Boolean> existsByOrganizationId(UUID organizationId);
     Mono<Boolean> existsByRoleIdAndOrganizationId(UUID roleId, UUID organizationId);
+    Mono<Long> deleteByRoleIdAndOrganizationId(UUID roleId, UUID organizationId);
     Flux<RoleOrganization> findByRoleIdAndOrganizationId(UUID roleId, UUID organizationId);
     Flux<RoleOrganization> findByOrganizationId(UUID organizationId, Pageable pageable);
     Flux<RoleOrganization> findByOrganizationId(UUID organizationId);

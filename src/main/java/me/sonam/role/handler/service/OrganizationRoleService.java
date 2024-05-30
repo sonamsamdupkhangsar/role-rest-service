@@ -58,6 +58,38 @@ public class OrganizationRoleService implements OrganizationRole {
     }
 
     @Override
+    public Mono<RoleOrganization> addRoleToOrganization(RoleOrganization roleOrganization) {
+        LOG.info("add role to organization: {}", roleOrganization);
+
+        return roleOrganizationRepository.deleteByRoleId(roleOrganization.getRoleId())
+                .doOnNext(aLong -> {
+                    LOG.info("deleted rows: {}", aLong);
+                })
+                .flatMap(aLong -> roleOrganizationRepository.save(new RoleOrganization(null, roleOrganization.getRoleId(),
+                                roleOrganization.getOrganizationId())))
+                .flatMap(roleOrganization1 -> {
+                    LOG.info("saved roleOrganization: {}", roleOrganization1);
+                    roleOrganizationRepository.findByRoleId(roleOrganization1.getRoleId()).doOnNext(roleOrganization2 ->
+                            LOG.info("found roleOrganization by roleId: {}", roleOrganization2)).subscribe();
+                    return roleOrganizationRepository.findByRoleId(roleOrganization1.getRoleId()).single();
+                });
+    }
+
+    @Override
+    public Mono<String> deleteRoleOrganization(UUID roleId, UUID organizationId) {
+        LOG.info("delete roleOrganization by roleId {} and organizationId: {}", roleId, organizationId);
+
+        return roleOrganizationRepository.existsByRoleIdAndOrganizationId(roleId, organizationId)
+                .filter(aBoolean -> {
+                    LOG.info("exists by roleId: '{}' and organizationId: '{}': {}", roleId, organizationId, aBoolean);
+                    return aBoolean;
+                })
+                .switchIfEmpty(Mono.error(new RoleException("no roleorganization exists with id")))
+                .flatMap(aBoolean -> roleOrganizationRepository.deleteByRoleIdAndOrganizationId(roleId, organizationId))
+                .thenReturn("roleOrganization deleted");
+    }
+
+    @Override
     public Mono<Page<Role>> getUserAssociatedRoles(UUID userId, Pageable pageable) {
         LOG.info("get user roles");
 
@@ -73,7 +105,7 @@ public class OrganizationRoleService implements OrganizationRole {
 
         return roleRepository.findByUserId(userId, pageable)
                 .doOnNext(role -> {
-                            LOG.info("add roleOrganization to role if there is");
+                    LOG.info("found role: {}", role);
                             roleOrganizationRepository.findByRoleId(role.getId())
                                     .single().doOnNext(role::setRoleOrganization);
                         }
@@ -86,9 +118,19 @@ public class OrganizationRoleService implements OrganizationRole {
 
     @Override
     public Mono<Role> getRoleById(UUID id) {
-        LOG.info("get role by id");
-        return roleRepository.findById(id).
-                switchIfEmpty(Mono.error(new RoleException("No role found with id")));
+        LOG.info("get role by id: {}", id);
+
+        LOG.info("find roleOrganization by roleId: {}", id);
+        return roleRepository.findById(id)
+                .flatMap(role ->
+                    roleOrganizationRepository.findByRoleId(role.getId())
+                                    .switchIfEmpty(Mono.just(new RoleOrganization()))
+                                    .doOnNext(roleOrganization -> {
+                                        if (roleOrganization.getId() != null) {
+                                            role.setRoleOrganization(roleOrganization);
+                                        }
+                                    }).then(Mono.just(role))
+                        );
     }
 
     @Override

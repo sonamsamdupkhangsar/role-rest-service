@@ -2,6 +2,7 @@ package me.sonam.role.handler;
 
 import me.sonam.role.handler.service.carrier.ClientOrganizationUserWithRole;
 import me.sonam.role.repo.entity.Role;
+import me.sonam.role.repo.entity.RoleOrganization;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,6 +72,44 @@ public class Handler {
                 })
                 .onErrorResume(throwable -> {
                     LOG.error("get roles call failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    /**
+     * this is for handling request to add role to organization
+     * @param serverRequest
+     * @return
+     */
+    public Mono<ServerResponse> addRoleToOrganization(ServerRequest serverRequest) {
+        LOG.info("add role to organization");
+
+        return serverRequest.bodyToMono(RoleOrganization.class).
+                flatMap(roleOrganization -> organizationRole.addRoleToOrganization(roleOrganization))
+                .flatMap(s -> {
+                    LOG.info("add roleToOrganization response  {}", s);
+                    return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(s);
+                })
+                .onErrorResume(throwable -> {
+                    LOG.error("add role to organization failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    public Mono<ServerResponse> deleteRoleOrganization(ServerRequest serverRequest) {
+        LOG.info("delete role from organization");
+
+        return organizationRole.deleteRoleOrganization(UUID.fromString(serverRequest.pathVariable("roleId")),
+                        UUID.fromString(serverRequest.pathVariable("organizationId")))
+                .flatMap(s -> {
+                    LOG.info("delete roleOrganization response  {}", s);
+                    return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("message", s));
+                })
+                .onErrorResume(throwable -> {
+                    LOG.error("delete roleOrganization failed, error: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
                             .bodyValue(Map.of("error", throwable.getMessage()));
                 });
