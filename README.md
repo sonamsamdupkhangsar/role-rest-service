@@ -8,7 +8,8 @@ Use the following to run local profile which will pick up properties defined in 
 ./gradlew bootRun --args="--spring.profiles.active=local"
 ```
 
- 
+For intellij set `spring.profiles.active=local` in environment variables in Run.
+
 ## Build Docker image
 Build docker image using included Dockerfile.
 `docker build -t imageregistry/role-rest-service:1.0 .` 
