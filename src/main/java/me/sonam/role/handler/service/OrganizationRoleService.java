@@ -41,16 +41,24 @@ public class OrganizationRoleService implements OrganizationRole {
 
     @Override
     public Mono<Page<Role>> getOrganizationRoles(UUID organizationId, Pageable pageable) {
-        LOG.info("get organization roles with pageable pageNumber: {}, pageSize: {}, sort: {}",
-                pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
+        LOG.info("get organization-id {} roles with pageable pageNumber: {}, pageSize: {}, sort: {}",
+                organizationId, pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
 
         Pageable pageable1 = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
         LOG.info("construct new pageable: {}", pageable1);
         //cross join didn't work so find by organizationId and get role
 
         return roleOrganizationRepository.findByOrganizationId(organizationId, pageable1)
-                .switchIfEmpty(Flux.empty())
-                .flatMap(roleOrganization -> roleRepository.findById(roleOrganization.getRoleId()))
+                .flatMap(roleOrganization -> {
+                    LOG.info("roleOrganization {}", roleOrganization);
+                    if (roleOrganization.getRoleId() == null) {
+                        LOG.error("roleOrganization.roleId is null, must be bad data, just delete this row");
+                        return roleOrganizationRepository.delete(roleOrganization).then(Mono.empty());
+                    }
+                    else {
+                        return roleRepository.findById(roleOrganization.getRoleId());
+                    }
+                })
                 .collectList()
                 .doOnNext(roles -> LOG.info("got roles: {}", roles))
                 .zipWith(roleOrganizationRepository.countByOrganizationId(organizationId))
