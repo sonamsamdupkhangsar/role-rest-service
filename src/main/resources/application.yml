@@ -31,7 +31,6 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${ISSUER_URI}
-          audiences: ${OAUTH_AUDIENCES}
 
 permitpath:
   - path: /roles/api/health/*
