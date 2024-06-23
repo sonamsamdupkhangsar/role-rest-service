@@ -43,7 +43,7 @@ public class RepoTest {
     public void repo() {
         LOG.info("save role and roleOrganization");
 
-        var role = new Role(null, "user");
+        var role = new Role(null, "user", UUID.randomUUID());
         roleRepository.save(role).subscribe(role1 -> LOG.info("saved role"));
         UUID orgId = UUID.fromString("db00af55-9a86-419e-9f35-5142eecb2d3d");//UUID.randomUUID();
         var roleOrganization = new RoleOrganization(null, role.getId(), orgId);

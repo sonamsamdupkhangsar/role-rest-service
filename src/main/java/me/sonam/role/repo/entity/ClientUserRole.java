@@ -1,5 +1,6 @@
 package me.sonam.role.repo.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.domain.Persistable;
@@ -9,7 +10,8 @@ import java.util.UUID;
 /**
  * This is for associating Role with a clientId, userid using roleId
  */
-public class RoleClientUser implements Persistable<UUID> {
+@JsonIgnoreProperties(value={"new"}) //ignore new field when marshalling
+public class ClientUserRole implements Persistable<UUID> {
     @Id
     private UUID id;
     private String clientId;
@@ -17,7 +19,11 @@ public class RoleClientUser implements Persistable<UUID> {
     private UUID roleId;
     @Transient
     private String roleName;
+    @Transient
+    private boolean isNew;
+    public ClientUserRole() {
 
+    }
     @Override
     public String toString() {
         return "RoleClientUser{" +
@@ -30,7 +36,7 @@ public class RoleClientUser implements Persistable<UUID> {
                 '}';
     }
 
-    public RoleClientUser(UUID id, String clientId, UUID userId, UUID roleId) {
+    public ClientUserRole(UUID id, String clientId, UUID userId, UUID roleId) {
         if (id == null) {
             this.id = UUID.randomUUID();
             this.isNew = true;
@@ -63,8 +69,7 @@ public class RoleClientUser implements Persistable<UUID> {
         return  this.roleName;
     }
 
-    @Transient
-    private boolean isNew;
+
 
     @Override
     public UUID getId() {

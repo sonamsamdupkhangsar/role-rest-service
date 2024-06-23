@@ -87,10 +87,11 @@ postgres:
 envs:
   - name: DB_SSLMODE
     value: REQUIRE
-  - name: ISSUER_URL
+  - name: ISSUER_URI
     value: https://authorization.sonam.cloud/issuer
-  - name: OAUTH_CLIENTS
+  - name: OAUTH_AUDIENCES
     value: oauth-client,nextjs-client
+
 
 
 health:

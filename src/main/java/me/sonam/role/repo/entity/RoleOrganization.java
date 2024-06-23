@@ -18,6 +18,9 @@ public class RoleOrganization implements Persistable<UUID> {
     private UUID organizationId;
     @Transient
     private boolean isNew;
+    public RoleOrganization() {
+        this.isNew = true;
+    }
     public RoleOrganization(UUID id, UUID roleId, UUID organizationId) {
         if (id != null) {
             this.id = id;

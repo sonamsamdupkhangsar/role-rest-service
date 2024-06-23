@@ -15,4 +15,5 @@ public interface RoleUserRepository extends ReactiveCrudRepository<RoleUser, UUI
     Mono<Boolean> existsByRoleId(UUID roleId);
     Mono<Boolean> existsByUserId(UUID userId);
     Mono<Boolean> existsByRoleIdAndUserId(UUID roleId, UUID userId);
+
 }
