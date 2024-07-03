@@ -447,26 +447,26 @@ public class RoleServiceTest {
         Role adminRoleId = createRoleByUser(creatorId, clientId, false, "admin", HttpStatus.CREATED);
         // createRoleByOrganizationId(creatorId, clientId, false, companyId1, "admin", HttpStatus.CREATED);
 
-        List<Map> mapList = Arrays.asList(Map.of("clientId", clientId.toString(),
-                        "userId", userId1.toString(),
+        List<Map<String, UUID>> mapList = Arrays.asList(Map.of("clientId", clientId,
+                        "userId", userId1,
                         "roleId", userRoleId.getId()),
-                Map.of("clientId", clientId.toString(),
-                        "userId", userId2.toString(),
+                Map.of("clientId", clientId,
+                        "userId", userId2,
                         "roleId", adminRoleId.getId()),
-                Map.of("clientId", clientId.toString(),
-                        "userId", userId3.toString(),
+                Map.of("clientId", clientId,
+                        "userId", userId3,
                         "roleId", userRoleId.getId()));
 
-        Map<String, Object> map1 = Map.of("clientId", clientId.toString(),
-                "userId", userId1.toString(),
+        Map<String, UUID> map1 = Map.of("clientId", clientId,
+                "userId", userId1,
                 "roleId", userRoleId.getId());
 
-        Map<String, Object> map2 = Map.of("clientId", clientId.toString(),
-                        "userId", userId2.toString(),
+        Map<String, UUID> map2 = Map.of("clientId", clientId,
+                        "userId", userId2,
                         "roleId", adminRoleId.getId());
 
-        Map<String, Object> map3 = Map.of("clientId", clientId.toString(),
-                        "userId", userId3.toString(),
+        Map<String, UUID> map3 = Map.of("clientId", clientId,
+                        "userId", userId3,
                         "roleId", userRoleId.getId());
 
         LOG.info("add users to role");
@@ -622,7 +622,7 @@ public class RoleServiceTest {
                 .exchange().expectStatus().isOk().expectBody(Map.class).returnResult();
     }
 
-    private ClientUserRole addClientUserRole(final Jwt jwt, Map<String, Object> map, ObjectMapper mapper) {
+    private ClientUserRole addClientUserRole(final Jwt jwt, Map<String, UUID> map, ObjectMapper mapper) {
         EntityExchangeResult<Map<String, Object>> entityExchangeResult = webTestClient.post().uri("/roles/client-users")
                 .headers(addJwt(jwt)).bodyValue(map)
                 .exchange().expectStatus().isOk().expectBody(new ParameterizedTypeReference<Map<String, Object>>(){}).returnResult();
