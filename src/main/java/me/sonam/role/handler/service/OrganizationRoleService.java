@@ -293,18 +293,12 @@ public class OrganizationRoleService implements OrganizationRole {
     /**
      * this is a add method for associating a role with a user.
      * Return the roleClientUser object so that updates can use the id.
-     * @param mapMono
-     * @return
      */
 
     @Override
-    public Mono<ClientUserRole> addClientUserRole(Mono<Map> mapMono) {
+    public Mono<ClientUserRole> addClientUserRole(UUID clientId, UUID roleId, UUID userId) {
         LOG.info("add role user");
-        return mapMono.flatMap(map -> {
-            LOG.info("map: {}", map);
-            return clientUserRoleRepository.existsByClientIdAndRoleIdAndUserId(
-                        map.get("clientId").toString(),
-                        UUID.fromString(map.get("roleId").toString()), UUID.fromString(map.get("userId").toString()))
+        return clientUserRoleRepository.existsByClientIdAndRoleIdAndUserId(clientId, roleId, userId)
                 .doOnNext(aBoolean -> LOG.info("exists by clientIdAndRoleIdAndUserId already?: {}", aBoolean))
                 .filter(aBoolean -> !aBoolean)
                 .switchIfEmpty(Mono.error(
@@ -312,48 +306,29 @@ public class OrganizationRoleService implements OrganizationRole {
                                 " delete existing one or update it.")))
                 .map(aBoolean -> {
                     LOG.info("return a role user to be added");
-                    return   new ClientUserRole
-                            (null, map.get("clientId").toString(),
-                                    UUID.fromString(map.get("userId").toString()),
-                                    UUID.fromString(map.get("roleId").toString()));
+                    return   new ClientUserRole(null,clientId, userId, roleId);
 
                 })
-                .flatMap(clientUserRole -> clientUserRoleRepository.save(clientUserRole));});
-
-                //.flatMap(roleClientUser -> Mono.just("created new role client user row"));
+                .flatMap(clientUserRole -> clientUserRoleRepository.save(clientUserRole));
     }
 
     /**
      * this is for updating existing roleClientUser association
-     * @param mapMono
-     * @return
      */
     @Override
-    public Mono<String> updateClientUserRole(Mono<Map> mapMono) {
+    public Mono<String> updateClientUserRole(UUID id, UUID clientId, UUID roleId, UUID userId) {
         LOG.info("update roleClientUser");
 
-        return mapMono.flatMap(map -> Mono.just(map.get("id").toString())
-                            .switchIfEmpty(Mono.error(new RoleException("id not found in update role client user")))
-                            //in update the applicationUser with appId and userId must exist
-                            .flatMap(s -> {
-                                LOG.info("id: {}",s);
-                                return clientUserRoleRepository.findById(UUID.fromString(s));}
-                            )
-                        .switchIfEmpty(Mono.error(new RoleException("no roleClientUser user found with id: "+ map.get("id"))))
-                            .map(clientUserRole -> {
-                                LOG.info("create roleClientUser");
-                              return  new ClientUserRole(clientUserRole.getId(),
-                                        map.get("clientId").toString(),
-                                        UUID.fromString(map.get("userId").toString()),
-                                        UUID.fromString(map.get("roleId").toString()));
-
-                            })
-                            .flatMap(clientUserRole -> {
-                                LOG.info("save roleUser");
-                                return clientUserRoleRepository.save(clientUserRole);
-                            }).thenReturn("updated role client user"))
-                .thenReturn("updated role client user with id");
-
+        return clientUserRoleRepository.findById(id)
+                .switchIfEmpty(Mono.error(new RoleException("no roleClientUser user found with id: "+ id)))
+                .map(clientUserRole -> {
+                    LOG.info("create roleClientUser");
+                    return  new ClientUserRole(clientUserRole.getId(), clientId, userId, roleId);
+                })
+                .flatMap(clientUserRole -> {
+                    LOG.info("save roleUser");
+                    return clientUserRoleRepository.save(clientUserRole);
+                }).thenReturn("updated role client user with id");
     }
 
     /**
@@ -379,7 +354,7 @@ public class OrganizationRoleService implements OrganizationRole {
      */
 
     @Override
-    public Mono<Page<ClientUserRole>> getClientUserRolePage(String clientId, Pageable pageable) {
+    public Mono<Page<ClientUserRole>> getClientUserRolePage(UUID clientId, Pageable pageable) {
         LOG.info("get users assigned to clientId");
 
         return clientUserRoleRepository.findByClientId(clientId, pageable)
@@ -407,7 +382,7 @@ public class OrganizationRoleService implements OrganizationRole {
      * @return
      */
     @Override
-    public Flux<ClientUserRole> getClientUserRoles(String clientId, UUID userId) {
+    public Flux<ClientUserRole> getClientUserRoles(UUID clientId, UUID userId) {
         LOG.info("get role for user by clientId {} and userId: {}", clientId, userId);
 
         return clientUserRoleRepository.findByClientIdAndUserId(clientId, userId)

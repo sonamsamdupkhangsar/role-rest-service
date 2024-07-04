@@ -27,12 +27,12 @@ public interface OrganizationRole {
     Mono<Role> updateRole(Mono<Role> roleMono);//Mono<Map<String, Object>> mapMono);
     Mono<String> deleteRole(UUID id);
 
-    Mono<ClientUserRole> addClientUserRole(Mono<Map> mapMono);
-    Mono<String> updateClientUserRole(Mono<Map> mapMono);
+    Mono<ClientUserRole> addClientUserRole(UUID clientId, UUID roleId, UUID userId);
+    Mono<String> updateClientUserRole(UUID id, UUID clientId, UUID roleId, UUID userId);
     Mono<String> deleteClientUserRole(UUID roleId, UUID userId);
 
-    Mono<Page<ClientUserRole>> getClientUserRolePage(String clientId, Pageable pageable);
-    Flux<ClientUserRole> getClientUserRoles(String clientId, UUID userId);
+    Mono<Page<ClientUserRole>> getClientUserRolePage(UUID clientId, Pageable pageable);
+    Flux<ClientUserRole> getClientUserRoles(UUID clientId, UUID userId);
     Mono<List<ClientOrganizationUserWithRole>> getClientOrganizationUserWithRoles(UUID clientId, UUID orgId, List<UUID> userUuids);
     Mono<ClientOrganizationUserRole> addClientOrganizationUserRole(UUID clientId, UUID orgId, UUID roleId, UUID userId);
     Mono<String> deleteClientOrganizationUserRoleById(UUID id);
