@@ -24,6 +24,7 @@ public class Role implements Persistable<UUID> {
     @Transient
     private RoleOrganization roleOrganization;
 
+    public Role() {}
     public Role(UUID id,  String name, UUID userId) {
         if (id != null) {
             this.id = id;

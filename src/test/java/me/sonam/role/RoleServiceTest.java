@@ -3,14 +3,8 @@ package me.sonam.role;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import me.sonam.role.handler.service.carrier.ClientOrganizationUserWithRole;
 import me.sonam.role.handler.service.carrier.User;
-import me.sonam.role.repo.RoleOrganizationRepository;
-import me.sonam.role.repo.RoleRepository;
-import me.sonam.role.repo.ClientUserRoleRepository;
-import me.sonam.role.repo.RoleUserRepository;
-import me.sonam.role.repo.entity.ClientOrganizationUserRole;
-import me.sonam.role.repo.entity.Role;
-import me.sonam.role.repo.entity.ClientUserRole;
-import me.sonam.role.repo.entity.RoleOrganization;
+import me.sonam.role.repo.*;
+import me.sonam.role.repo.entity.*;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +15,7 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.ApplicationContext;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
@@ -41,6 +36,9 @@ import static org.assertj.core.api.Assertions.fail;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockJwt;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.springSecurity;
+import static org.springframework.web.reactive.function.client.ExchangeFilterFunctions.basicAuthentication;
 
 @AutoConfigureWebTestClient
 @EnableAutoConfiguration
@@ -63,11 +61,14 @@ public class RoleServiceTest {
     @Autowired
     private RoleUserRepository roleUserRepository;
 
+    @Autowired
+    private RoleClientOrganizationUserRepository roleClientOrganizationUserRepository;
+
     private Role createRoleByOrganizationId(UUID creatorId, UUID clientId, boolean shouldExistBefore, UUID organizationId, String roleName, HttpStatus httpStatus) {
         LOG.info("create role {}", roleName);
         final String authenticationId = "sonam";
         Jwt jwt = jwt(authenticationId);
-        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+        //when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
 
         //UUID clientId = UUID.randomUUID();
        // UUID userId = UUID.randomUUID();
@@ -84,7 +85,7 @@ public class RoleServiceTest {
                 "clientId", clientId.toString(),
                 "userId", creatorId.toString());
 
-        EntityExchangeResult<Role> entityExchangeResult = webTestClient.post().uri("/roles")
+        EntityExchangeResult<Role> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).post().uri("/roles")
                 .headers(addJwt(jwt)).bodyValue(mapBody).exchange().expectStatus().isEqualTo(httpStatus).expectBody(Role.class)
                 .returnResult();
         LOG.info("created roleName: {} with id: {}", roleName, entityExchangeResult.getResponseBody().getId());
@@ -126,7 +127,7 @@ public class RoleServiceTest {
         LOG.info("create role {}", roleName);
         final String authenticationId = "sonam";
         Jwt jwt = jwt(authenticationId);
-        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+    //    when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
 
         List<Role> list = getRolesOwnedByUser(creatorId);
         List<String> roleNames = list.stream().map(role -> role.getName()).collect(toList());
@@ -139,7 +140,7 @@ public class RoleServiceTest {
                 "clientId", clientId.toString(),
                 "userId", creatorId.toString());
 
-        EntityExchangeResult<Role> entityExchangeResult = webTestClient.post().uri("/roles")
+        EntityExchangeResult<Role> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).post().uri("/roles")
                 .headers(addJwt(jwt)).bodyValue(mapBody).exchange().expectStatus().isEqualTo(httpStatus).expectBody(Role.class)
                 .returnResult();
         LOG.info("created roleName: {} with id: {}", roleName, entityExchangeResult.getResponseBody().getId());
@@ -203,7 +204,7 @@ public class RoleServiceTest {
     public void updateRole() {
         final String authenticationId = "sonam";
         Jwt jwt = jwt(authenticationId);
-        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+      //  when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
 
         UUID organizationId = UUID.randomUUID();
         UUID creatorId = UUID.randomUUID();
@@ -214,7 +215,7 @@ public class RoleServiceTest {
         LOG.debug("build a map with admin name for role update");
         var mapBody = Map.of("id", role.getId(), "userId", creatorId, "name", "admin");
 
-        EntityExchangeResult<Role> entityExchangeResult = webTestClient.put().uri("/roles")
+        EntityExchangeResult<Role> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).put().uri("/roles")
                 .headers(addJwt(jwt)).bodyValue(mapBody).exchange().expectStatus().isOk().expectBody(Role.class)
                 .returnResult();
         LOG.info("update roleName: {}", entityExchangeResult.getResponseBody().getName());
@@ -228,7 +229,7 @@ public class RoleServiceTest {
     public void delete() {
         final String authenticationId = "sonam";
         Jwt jwt = jwt(authenticationId);
-        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+        //when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
 
         UUID organizationId = UUID.randomUUID();
         UUID creatorId = UUID.randomUUID();
@@ -240,7 +241,7 @@ public class RoleServiceTest {
         StepVerifier.create(roleOrganizationRepository.existsByRoleIdAndOrganizationId(role.getId(), organizationId))
                 .expectNext(true).verifyComplete();
 
-        EntityExchangeResult<Map> entityExchangeResult = webTestClient.delete().uri("/roles/"+role.getId())
+        EntityExchangeResult<Map> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).delete().uri("/roles/"+role.getId())
                 .headers(addJwt(jwt)).exchange().expectStatus().isOk().expectBody(Map.class)
                 .returnResult();
         LOG.info("update roleName: {}", entityExchangeResult.getResponseBody().get("message"));
@@ -262,7 +263,7 @@ public class RoleServiceTest {
     public void getRoleById() {
         final String authenticationId = "sonam";
         Jwt jwt = jwt(authenticationId);
-        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+     //   when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
 
         UUID organizationId = UUID.randomUUID();
         UUID creatorId = UUID.randomUUID();
@@ -271,7 +272,7 @@ public class RoleServiceTest {
         LOG.info("create user role");
         Role role = createRoleByOrganizationId(creatorId, clientId, false, organizationId, "user", HttpStatus.CREATED);
 
-        EntityExchangeResult<Map> entityExchangeResult = webTestClient.get().uri("/roles/"+role.getId())
+        EntityExchangeResult<Map> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).get().uri("/roles/"+role.getId())
                 .headers(addJwt(jwt)).exchange().expectStatus().isOk().expectBody(Map.class)
                 .returnResult();
         LOG.info("retrieved role by id: {}", entityExchangeResult.getResponseBody());
@@ -286,7 +287,7 @@ public class RoleServiceTest {
     public void getByOrganiationIdWithPages() {
         final String authenticationId = "sonam";
         Jwt jwt = jwt(authenticationId);
-        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+       // when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
 
         UUID companyId1 = UUID.randomUUID();
         UUID companyId2 = UUID.randomUUID();
@@ -352,7 +353,7 @@ public class RoleServiceTest {
 
         final String authenticationId = "sonam";
         Jwt jwt = jwt(authenticationId);
-        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+       // when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
 
         UUID roleId = userRoleId.getId();
         UUID organizationId = UUID.randomUUID();
@@ -361,7 +362,7 @@ public class RoleServiceTest {
         map.put("roleId", roleId);
         map.put("organizationId", organizationId);
 
-        EntityExchangeResult<RoleOrganization> entityExchangeResult = webTestClient.post().uri("/roles/organizations")
+        EntityExchangeResult<RoleOrganization> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).post().uri("/roles/organizations")
                 .headers(addJwt(jwt)).bodyValue(map).exchange().expectStatus().isOk().expectBody(RoleOrganization.class)
                 .returnResult();
 
@@ -369,7 +370,7 @@ public class RoleServiceTest {
 
         assertThat(roleOrganization.getId()).isNotNull();
 
-        EntityExchangeResult<Role> roleResult = webTestClient.get().uri("/roles/"+userRoleId.getId())
+        EntityExchangeResult<Role> roleResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).get().uri("/roles/"+userRoleId.getId())
                 .headers(addJwt(jwt)).exchange().expectStatus().isOk().expectBody(Role.class)
                 .returnResult();
         LOG.info("retrieved role by id: {}", roleResult.getResponseBody());
@@ -381,13 +382,13 @@ public class RoleServiceTest {
 
 
         LOG.info("delete the created role organization");
-        EntityExchangeResult<Map<String, String>> mapResult = webTestClient.delete().uri("/roles/"+userRoleId.getId()+"/organizations/"+roleOrganization.getOrganizationId())
+        EntityExchangeResult<Map<String, String>> mapResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).delete().uri("/roles/"+userRoleId.getId()+"/organizations/"+roleOrganization.getOrganizationId())
                 .headers(addJwt(jwt)).exchange().expectStatus().isOk().expectBody(new ParameterizedTypeReference<Map<String, String>>(){})
                 .returnResult();
 
         assertThat(mapResult.getResponseBody().get("message")).isEqualTo("roleOrganization deleted");
 
-        mapResult = webTestClient.delete().uri("/roles/"+ userRoleId.getId()+"/organizations/"+roleOrganization.getOrganizationId())
+        mapResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).delete().uri("/roles/"+ userRoleId.getId()+"/organizations/"+roleOrganization.getOrganizationId())
                 .headers(addJwt(jwt)).exchange().expectStatus().isBadRequest().expectBody(new ParameterizedTypeReference<Map<String, String>>(){})
                 .returnResult();
 
@@ -401,10 +402,10 @@ public class RoleServiceTest {
     public Page<Role> getRolesOwnedByOrganization(UUID organizationId) {
         final String authenticationId = "sonam";
         Jwt jwt = jwt(authenticationId);
-        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+        //when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
 
             LOG.info("get roles owned by organization");
-        EntityExchangeResult<RestPage<Role>> entityExchangeResult = webTestClient.get().uri("/roles/organizations/"+organizationId)
+        EntityExchangeResult<RestPage<Role>> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).get().uri("/roles/organizations/"+organizationId)
                 .headers(addJwt(jwt)).exchange().expectStatus().isOk().expectBody(new ParameterizedTypeReference<RestPage<Role>>() {
                 })
                 .returnResult();
@@ -417,10 +418,10 @@ public class RoleServiceTest {
     public List<Role> getRolesOwnedByUser(UUID userId) {
         final String authenticationId = "sonam";
         Jwt jwt = jwt(authenticationId);
-        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+       // when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
 
         LOG.info("get roles owned by user");
-        EntityExchangeResult<RestPage<Role>> entityExchangeResult = webTestClient.get().uri("/roles/user-id/"+userId)
+        EntityExchangeResult<RestPage<Role>> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).get().uri("/roles/user-id/"+userId)
                 .headers(addJwt(jwt)).exchange().expectStatus().isOk().expectBody(new ParameterizedTypeReference<RestPage<Role>>(){})
                 .returnResult();
 
@@ -544,7 +545,7 @@ public class RoleServiceTest {
     public void addClientOrganizationUsers() {
         final String authenticationId = "sonam";
         Jwt jwt = jwt(authenticationId);
-        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+   //     when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
 
         UUID clientId = UUID.randomUUID();
         UUID organizationId = UUID.randomUUID();
@@ -582,7 +583,7 @@ public class RoleServiceTest {
     private void deleteClientOrganizationUser(UUID id, Jwt jwt) {
         LOG.info("delete clientOrganizationUser by id");
 
-        EntityExchangeResult<String> entityExchangeResult = webTestClient.delete().uri("/roles/client-organization-users/"+id).headers(addJwt(jwt))
+        EntityExchangeResult<String> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).delete().uri("/roles/client-organization-users/"+id).headers(addJwt(jwt))
                 .exchange().expectStatus().isOk().expectBody(String.class).returnResult();
 
         assertThat(entityExchangeResult.getResponseBody()).isEqualTo("roleClientOrganizationUser deleted");
@@ -599,7 +600,7 @@ public class RoleServiceTest {
         }
         LOG.info("after removal of last , {}", csvUuid);
 
-        return webTestClient.get().uri("/roles/client-organization-users/client-id/"+clientId+"/organization-id/"+organizationId+"/user-ids/"+ csvUuid)
+        return webTestClient.mutateWith(mockJwt().jwt(jwt)).get().uri("/roles/client-organization-users/client-id/"+clientId+"/organization-id/"+organizationId+"/user-ids/"+ csvUuid)
                 .headers(addJwt(jwt)).exchange().expectStatus().isOk().expectBody(new ParameterizedTypeReference<List<ClientOrganizationUserWithRole>>() {})
                 .returnResult().getResponseBody();
     }
@@ -607,7 +608,7 @@ public class RoleServiceTest {
     private ClientOrganizationUserRole addClientOrganizationUserWithRole(Jwt jwt, ClientOrganizationUserWithRole clientOrganizationUserWithRole) {
         LOG.info("call endpoint to add clientOrganizationUserWithRole");
 
-        EntityExchangeResult<ClientOrganizationUserRole> entityExchangeResult = webTestClient.post()
+        EntityExchangeResult<ClientOrganizationUserRole> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).post()
                 .uri("/roles/client-organization-users")
                 .headers(addJwt(jwt)).bodyValue(clientOrganizationUserWithRole)
                 .exchange().expectStatus().isOk().expectBody(ClientOrganizationUserRole.class).returnResult();
@@ -617,13 +618,13 @@ public class RoleServiceTest {
     }
     //delete ClientUserRole by roleId and userId
     private void deleteClientUserRole(final Jwt jwt, UUID adminRoleId, UUID userId) {
-        webTestClient.delete()
+        webTestClient.mutateWith(mockJwt().jwt(jwt)).delete()
                 .uri("/roles/client-users/role-id/"+adminRoleId+"/user-id/"+userId).headers(addJwt(jwt))
                 .exchange().expectStatus().isOk().expectBody(Map.class).returnResult();
     }
 
     private ClientUserRole addClientUserRole(final Jwt jwt, Map<String, UUID> map, ObjectMapper mapper) {
-        EntityExchangeResult<Map<String, Object>> entityExchangeResult = webTestClient.post().uri("/roles/client-users")
+        EntityExchangeResult<Map<String, Object>> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).post().uri("/roles/client-users")
                 .headers(addJwt(jwt)).bodyValue(map)
                 .exchange().expectStatus().isOk().expectBody(new ParameterizedTypeReference<Map<String, Object>>(){}).returnResult();
         LOG.info("response from adding user client roles: {}", entityExchangeResult.getResponseBody());
@@ -642,7 +643,7 @@ public class RoleServiceTest {
     private void updateClientUserRole(final Jwt jwt, ClientUserRole clientUserRole, ObjectMapper mapper) {
         LOG.info("update role client user");
 
-        EntityExchangeResult<Map> entityExchangeResult = webTestClient.put()
+        EntityExchangeResult<Map> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).put()
                 .uri("/roles/client-users").headers(addJwt(jwt)).bodyValue(clientUserRole)
                 .exchange().expectStatus().isOk().expectBody(Map.class).returnResult();
         LOG.info("result: {}", entityExchangeResult.getResponseBody());
@@ -652,7 +653,7 @@ public class RoleServiceTest {
 
     private Map<UUID, ClientUserRole> getClientUserRole(final Jwt jwt, final UUID clientId, ObjectMapper mapper) {
         LOG.info("get role user client by page");
-        EntityExchangeResult<RestPage<ClientUserRole>> pageResult = webTestClient.get().uri("/roles/client-users/client-id/" + clientId)
+        EntityExchangeResult<RestPage<ClientUserRole>> pageResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).get().uri("/roles/client-users/client-id/" + clientId)
                 .headers(addJwt(jwt))
                 .exchange().expectStatus().isOk().expectBody(new ParameterizedTypeReference<RestPage<ClientUserRole>>() {
                 }).returnResult();
@@ -697,13 +698,13 @@ public class RoleServiceTest {
         LOG.info("add users to role");
         final String authenticationId = "sonam";
         Jwt jwt = jwt(authenticationId);
-        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+     //   when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
 
 
 
         LOG.info("update role user");
         for (ClientUserRole clientUserRole : updateClientUserRoles) {
-            EntityExchangeResult<Map> entityExchangeResult = webTestClient.put()
+            EntityExchangeResult<Map> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).put()
                     .uri("/roles/user").headers(addJwt(jwt)).bodyValue(clientUserRole)
                     .exchange().expectStatus().isOk().expectBody(Map.class).returnResult();
             LOG.info("result: {}", entityExchangeResult.getResponseBody());
@@ -725,7 +726,7 @@ public class RoleServiceTest {
     private void assertRoles(Map<UUID, String> userIdRoleMap, Jwt jwt, UUID clientId) {
 
         LOG.info("get applications by id and all users in it, which should give 4 applicationUsers");
-        EntityExchangeResult<RestPage<ClientUserRole>> pageResult = webTestClient.get().uri("/roles/client-users/client-id/" + clientId)
+        EntityExchangeResult<RestPage<ClientUserRole>> pageResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).get().uri("/roles/client-users/client-id/" + clientId)
                 .headers(addJwt(jwt))
                 .exchange().expectStatus().isOk().expectBody(new ParameterizedTypeReference<RestPage<ClientUserRole>>() {
                 }).returnResult();
@@ -775,18 +776,18 @@ public class RoleServiceTest {
         LOG.info("add users to role");
         final String authenticationId = "sonam";
         Jwt jwt = jwt(authenticationId);
-        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+       /// when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
 
 
         mapList.forEach(map -> {
-            EntityExchangeResult<String> entityExchangeResult = webTestClient.post().uri("/roles/client-users").headers(addJwt(jwt)).bodyValue(map)
+            EntityExchangeResult<String> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).post().uri("/roles/client-users").headers(addJwt(jwt)).bodyValue(map)
                     .exchange().expectStatus().isOk().expectBody(String.class).returnResult();
         });
         LOG.info("made role user associations");
 
         LOG.info("get role by clientId and userId");
 
-        EntityExchangeResult<List> roleByClientIdAndUserIdResult = webTestClient.get()
+        EntityExchangeResult<List> roleByClientIdAndUserIdResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).get()
                 .uri("/roles/client-users/client-id/" + clientId + "/user-id/" + userId1).headers(addJwt(jwt))
                 .exchange().expectStatus().isOk().expectBody(List.class).returnResult();
 
@@ -809,6 +810,125 @@ public class RoleServiceTest {
         assertThat(linkedHashMap.get("roleName")).isEqualTo("admin");
         assertThat(linkedHashMap.get("clientId")).isEqualTo(clientId.toString());
         assertThat(linkedHashMap.get("userId")).isEqualTo(userId1.toString());
+    }
+
+    /**
+     * this will test the delete my roles, part of delete my info
+     */
+    @Test
+    public void deleteMyRole() {
+        roleRepository.deleteAll().subscribe();
+        roleOrganizationRepository.deleteAll().subscribe();
+        clientUserRoleRepository.deleteAll().subscribe();
+        roleClientOrganizationUserRepository.deleteAll().subscribe();
+
+        UUID userId1 = UUID.randomUUID();
+        Role role1 = new Role(null, "Admin1", userId1);
+        Role role2 = new Role(null, "Admin2", userId1);
+        Role role3 = new Role(null, "Admin3", userId1);
+        Role role4 = new Role(null, "Admin4", userId1);
+        Role role5 = new Role(null, "Admin5", userId1);
+
+        UUID userId2 = UUID.randomUUID();
+        Role role6 = new Role(null, "Admin6", userId1);
+        Role role7 = new Role(null, "Admin7", userId1);
+
+        roleRepository.save(role1).subscribe();
+        roleRepository.save(role2).subscribe();
+        roleRepository.save(role3).subscribe();
+        roleRepository.save(role4).subscribe();
+        roleRepository.save(role5).subscribe();
+
+        roleRepository.save(role6).subscribe();
+        roleRepository.save(role7).subscribe();
+
+        RoleUser roleUser1 = new RoleUser(null, role1.getId(), userId1);
+        RoleUser roleUser2 = new RoleUser(null, role2.getId(), userId1);
+
+        RoleUser roleUser3 = new RoleUser(null, role1.getId(), userId2);
+
+        roleUserRepository.save(roleUser1).subscribe();
+        roleUserRepository.save(roleUser2).subscribe();
+        roleUserRepository.save(roleUser3).subscribe();
+
+
+        UUID organizationId = UUID.randomUUID();
+        RoleOrganization roleOrganization1 = new RoleOrganization(null, role3.getId(), organizationId);
+        RoleOrganization roleOrganization2 = new RoleOrganization(null, role3.getId(), organizationId);
+
+        roleOrganizationRepository.save(roleOrganization1).subscribe();
+        roleOrganizationRepository.save(roleOrganization2).subscribe();
+
+        UUID clientId = UUID.randomUUID();
+        ClientUserRole clientUserRole1 = new ClientUserRole(null, clientId, userId1, role7.getId());
+        ClientUserRole clientUserRole2 = new ClientUserRole(null, clientId, userId1, role7.getId());
+
+        clientUserRoleRepository.save(clientUserRole1).subscribe();
+        clientUserRoleRepository.save(clientUserRole2).subscribe();
+
+        ClientOrganizationUserRole clientOrganizationUserRole1 = new ClientOrganizationUserRole(null, role4.getId(), clientId, organizationId, userId1);
+        ClientOrganizationUserRole clientOrganizationUserRole2 = new ClientOrganizationUserRole(null, role4.getId(), clientId, organizationId, userId1);
+
+        roleClientOrganizationUserRepository.save(clientOrganizationUserRole1).subscribe();
+        roleClientOrganizationUserRepository.save(clientOrganizationUserRole2).subscribe();
+
+
+        callDeleteMyRole(userId1);
+
+
+        StepVerifier.create(roleRepository.countByUserId(userId1)).assertNext(aLong -> {
+            LOG.info("there should be 0 roles created by userId1: {}", aLong);
+            Assertions.assertThat(aLong).isEqualTo(0);
+        }).verifyComplete();
+
+        StepVerifier.create(roleOrganizationRepository.count()).assertNext(aLong -> {
+            LOG.info("there should be 0 roleOrganization assoicated with role3.id: {}", aLong);
+            Assertions.assertThat(aLong).isEqualTo(0);
+        }).verifyComplete();
+
+
+        StepVerifier.create(clientUserRoleRepository.count()).assertNext(aLong -> {
+            LOG.info("there should be 0 clientUserRoles after deletion by userId1: {}", aLong);
+            Assertions.assertThat(aLong).isEqualTo(0);
+        }).verifyComplete();
+
+        StepVerifier.create(roleClientOrganizationUserRepository.count()).assertNext(aLong -> {
+            LOG.info("there should be 0 roleClientOrganizationUsers created by userId1: {}", aLong);
+            Assertions.assertThat(aLong).isEqualTo(0);
+        }).verifyComplete();
+
+
+
+    }
+    @Autowired
+    ApplicationContext context;
+
+    @org.junit.jupiter.api.BeforeEach
+    public void setup() {
+        this.webTestClient = WebTestClient
+                .bindToApplicationContext(this.context)
+                // add Spring Security test Support
+                .apply(springSecurity())
+                .configureClient()
+                .filter(basicAuthentication("user", "password"))
+                .build();
+    }
+
+    private void callDeleteMyRole(UUID userId) {
+        LOG.info("delete my role");
+        final String authenticationId = "sonam";
+        Jwt jwt = jwt(authenticationId, userId);
+        //when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+
+
+        EntityExchangeResult<String> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt)).delete().uri("/roles")
+                .headers(addJwt(jwt)).exchange().expectStatus().isOk().expectBody(String.class)
+                .returnResult();
+
+    }
+    private Jwt jwt(String subjectName, UUID userId) {
+        return new Jwt("token", null, null,
+                Map.of("alg", "none"), Map.of("sub", subjectName, "userId", userId.toString()));
     }
 
     private Jwt jwt(String subjectName) {

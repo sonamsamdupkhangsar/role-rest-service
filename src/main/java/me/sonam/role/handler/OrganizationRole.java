@@ -37,4 +37,6 @@ public interface OrganizationRole {
     Mono<ClientOrganizationUserRole> addClientOrganizationUserRole(UUID clientId, UUID orgId, UUID roleId, UUID userId);
     Mono<String> deleteClientOrganizationUserRoleById(UUID id);
 
+    Mono<String> deleteMyRole();
+
 }

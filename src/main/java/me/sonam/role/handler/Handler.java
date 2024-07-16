@@ -349,4 +349,24 @@ public class Handler {
                             .bodyValue(Map.of("error", throwable.getMessage()));
                 });
     }
+
+    /**
+     * this is for deleting all roles related to a user, part of delete my info request
+     * @param serverRequest
+     * @return
+     */
+    public Mono<ServerResponse> deleteMyRole(ServerRequest serverRequest) {
+        LOG.info("deleted");
+
+        return organizationRole.deleteMyRole()
+                .flatMap(s -> {
+                    LOG.info("delete my role success, sending response: {}", s);
+                    return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(s);
+                })
+                .onErrorResume(throwable -> {
+                    LOG.error("delete my role call failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
 }

@@ -19,6 +19,7 @@ public class ClientOrganizationUserRole implements Persistable<UUID> {
     @Transient
     private boolean isNew;
 
+    public ClientOrganizationUserRole(){}
     public ClientOrganizationUserRole(UUID id, UUID roleId, UUID clientId, UUID organizationId, UUID userId) {
         if (id != null) {
             this.id = id;
