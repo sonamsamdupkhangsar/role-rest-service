@@ -13,6 +13,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -439,6 +441,41 @@ public class OrganizationRoleService implements OrganizationRole {
         LOG.info("delete by roleClientUserUser by id: {}", id);
 
         return roleClientOrganizationUserRepository.deleteById(id).thenReturn("roleClientOrganizationUser deleted");
+    }
+
+    /**
+     * this is the implementation to delete all rows related to the logged-in user by user-id, part of delete my info.
+     * delete role created by logged-in user, then delete all roleOrganization and roleUser by role.id
+     * @return response
+     */
+    @Override
+    public Mono<String> deleteMyRole() {
+        LOG.info("delete my role");
+        return ReactiveSecurityContextHolder.getContext().flatMap(securityContext -> {
+            LOG.info("principal: {}", securityContext.getAuthentication().getPrincipal());
+            org.springframework.security.core.Authentication authentication = securityContext.getAuthentication();
+
+            LOG.info("authentication: {}", authentication);
+            LOG.info("authentication.principal: {}", authentication.getPrincipal());
+            Jwt jwt = (Jwt) authentication.getPrincipal();
+            String userIdString = jwt.getClaim("userId");
+            LOG.info("delete user data for userId: {}", userIdString);
+
+            UUID userId = UUID.fromString(userIdString);
+
+           return roleRepository.findByUserId(userId).flatMap(role -> {
+               LOG.info("found role: {}", role);
+
+               return roleUserRepository.deleteByRoleId(role.getId())
+                       .then(roleOrganizationRepository.deleteByRoleId(role.getId()))
+                       .then(clientUserRoleRepository.deleteByRoleId(role.getId()))
+                       .then(roleClientOrganizationUserRepository.deleteByRoleId(role.getId()))
+                       .then(clientUserRoleRepository.deleteByRoleId(role.getId()))
+                       .then(roleRepository.deleteById(role.getId()));
+
+           }).collectList()
+                   .thenReturn("delete my role success for user id: " + userId);
+        });
     }
 }
 

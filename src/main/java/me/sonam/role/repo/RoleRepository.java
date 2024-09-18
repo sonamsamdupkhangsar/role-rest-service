@@ -15,6 +15,7 @@ import java.util.UUID;
 public interface RoleRepository extends ReactiveCrudRepository<Role, UUID> {
 
 
+    Flux<Role> findByUserId(UUID userId);
     Flux<Role> findByUserId(UUID userId, Pageable pageable);
     Mono<Boolean> existsByNameAndUserId(String name, UUID userId);
     Mono<Role> findByNameAndUserId(String name, UUID userId);
