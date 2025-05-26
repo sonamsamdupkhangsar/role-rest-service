@@ -92,8 +92,6 @@ envs:
   - name: OAUTH_AUDIENCES
     value: oauth-client,nextjs-client
 
-
-
 health:
   liveness:
     path: /roles/api/health/liveness

@@ -45,3 +45,5 @@ permitpath:
 eureka:
   client:
     enabled: false
+
+tokenExpireSeconds: 3
