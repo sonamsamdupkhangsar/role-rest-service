@@ -35,3 +35,5 @@ spring:
 permitpath:
   - path: /roles/api/health/*
   - path: /actuator/*
+
+tokenExpireSeconds: 180
