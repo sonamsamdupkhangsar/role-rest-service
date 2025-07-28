@@ -1,8 +1,7 @@
 logging:
   level:
     root: info
-    me:
-      sonam: debug
+    me.sonam: debug
 info:
   app:
     name: Springboot me.sonam.account.Application

@@ -10,6 +10,7 @@ public class Util {
     private static final Logger LOG = LoggerFactory.getLogger(Util.class);
 
     public static PageRequest getPageable(ServerRequest serverRequest) {
+        LOG.debug("constructing page");
         int page = 0;
         int size = 100;
         String sortby = null;

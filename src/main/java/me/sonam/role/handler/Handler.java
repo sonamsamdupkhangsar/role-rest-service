@@ -28,6 +28,9 @@ public class Handler {
     @Autowired
     private OrganizationRole organizationRole;
 
+    @Autowired
+    private AuthzMgrRole authzMgrRole;
+
     public Mono<ServerResponse> getRole(ServerRequest serverRequest) {
         LOG.info("get role");
 
@@ -369,4 +372,146 @@ public class Handler {
                             .bodyValue(Map.of("error", throwable.getMessage()));
                 });
     }
+
+    public Mono<ServerResponse> createAuthzManagerRole(ServerRequest serverRequest) {
+        LOG.info("create AuthzManagerRole");
+
+        return serverRequest.bodyToMono(new ParameterizedTypeReference<Map<String, String>>() {
+                })
+                .switchIfEmpty(Mono.error(new RoleException("map is empty")))
+                .flatMap(map -> authzMgrRole.createAuthzManagerRole(map.get("name")))
+                .flatMap(role -> {
+                            LOG.info("returning created");
+                            return ServerResponse.created(URI.create("/authzmanagerroles/" + role.getId()))
+                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(role);
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("create authzManagerRole failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    public Mono<ServerResponse> assignUserToAuthzManagerRole(ServerRequest serverRequest) {
+        LOG.info("assign user to AuthzManagerRole");
+
+        return serverRequest.bodyToMono(new ParameterizedTypeReference<Map<String, String>>() {
+                })
+                .switchIfEmpty(Mono.error(new RoleException("map is empty")))
+                .flatMap(map -> {
+                    LOG.info("converting authzManagerRoleId from map {} to UUID", map.get("authzManagerRoleId"));
+                    UUID authzManagerRoleId = UUID.fromString(map.get("authzManagerRoleId"));
+                    LOG.info("converting usreId from map {} to UUID", map.get("userId"));
+                    UUID userId = UUID.fromString(map.get("userId"));
+                    return Mono.just(authzManagerRoleId).zipWith(Mono.just(userId));
+                })
+                .flatMap(objects -> authzMgrRole.assignUsertToAuthzManagerRole(objects.getT1(), objects.getT2()))
+                .flatMap(authzManagerRoleUser -> {
+                            LOG.info("user assigned to authzManagerRole");
+                            return ServerResponse.created(URI.create("/authzmanagerroles/users" + authzManagerRoleUser.getId()))
+                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(authzManagerRoleUser);
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("assign user to authzManagerRole failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    public Mono<ServerResponse> assignOrganizationToAuthzManagerRoleWithUser(ServerRequest serverRequest) {
+        LOG.info("create AuthorizationRoleOrganization");
+
+        return serverRequest.bodyToMono(new ParameterizedTypeReference<Map<String, String>>() {
+                })
+                .switchIfEmpty(Mono.error(new RoleException("map is empty")))
+                .flatMap(map -> {
+                    LOG.info("converting input to UUIDs {}", map);
+                    UUID authzManagerRoleId = UUID.fromString(map.get("authzManagerRoleId"));
+                    UUID userId = UUID.fromString(map.get("userId"));
+                    UUID authzManagerRoleUserId = UUID.fromString(map.get("authzManagerRoleUserId"));
+                    UUID organizationId = UUID.fromString(map.get("organizationId"));
+
+                    return authzMgrRole.assignOrganizationToAuthzManagerRoleWithUser(authzManagerRoleId, organizationId, userId, authzManagerRoleUserId);
+                })
+                .flatMap(authzManagerRoleOrganization -> {
+                            LOG.info("returning created");
+                            return ServerResponse.created(URI.create("/authzmanagerroles/users/organizations" + authzManagerRoleOrganization.getId()))
+                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(authzManagerRoleOrganization);
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("create role failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    public Mono<ServerResponse> deleteUserFromAuthzManagerRoleOrganization(ServerRequest serverRequest) {
+        LOG.info("delete user from AuthzManagerRoleOrganization using pathVariable id {}", serverRequest.pathVariable("id"));
+        UUID authzManagerRoleOrganizationId = UUID.fromString(serverRequest.pathVariable("id"));
+
+        return authzMgrRole.deleteUserFromAuthzManagerRoleOrganization(authzManagerRoleOrganizationId)
+                .flatMap(role -> {
+                            LOG.info("authzManagerRoleOrganization deleted");
+                            return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON)
+                                    .bodyValue("User removed from AuthzManagerRoleOrganization");
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("create role failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    public Mono<ServerResponse> getAuthzManagerRoleByOrgId(ServerRequest serverRequest) {
+        LOG.info("get AuthzManagerRoleUser by orgId pathVariable {}", serverRequest.pathVariable("organizationId"));
+        UUID organizationId = UUID.fromString(serverRequest.pathVariable("organizationId"));
+        UUID authzManagerRoleId = UUID.fromString(serverRequest.pathVariable("authzManagerRoleId"));
+
+        Pageable pageable = Util.getPageable(serverRequest);
+
+
+        return authzMgrRole.getUserIdByAuthzManagerRoleIdAndOrgId(authzManagerRoleId, organizationId, pageable)
+                .flatMap(uuidPage -> {
+                            LOG.info("authzManagerRoleOrganization deleted");
+                            return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON)
+                                    .bodyValue(uuidPage);
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("get AuthzManagerRole by orrgId failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    /**
+     * This is to check if the list of userIds in payload are superAdmin role in this organizationId
+     * @param serverRequest
+     * @return Pair of userId and superAdmin like <UserId, SuperAdmin> or <UserId, EMPTY>
+     */
+    public Mono<ServerResponse> areUsersSuperAdminInDefaultOrgId(ServerRequest serverRequest) {
+        LOG.info("get AuthzManagerRoleUser by orgId pathVariable {}", serverRequest.pathVariable("organizationId"));
+        UUID organizationId = UUID.fromString(serverRequest.pathVariable("organizationId"));
+
+        return serverRequest.bodyToMono(new ParameterizedTypeReference<List<UUID>>() {
+                })
+                .switchIfEmpty(Mono.error(new RoleException("user id List is empty")))
+                .flatMap(list -> authzMgrRole.areUsersSuperAdminByOrgId(list, organizationId))
+                .flatMap(role -> {
+                            LOG.info("returning created");
+                            return ServerResponse.created(URI.create("/authzmanagerroles/users"))
+                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(role);
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("create authzManagerRole failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
 }
