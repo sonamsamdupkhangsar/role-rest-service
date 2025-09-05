@@ -2,7 +2,6 @@ package me.sonam.role;
 
 
 import me.sonam.role.repo.AuthzManagerRoleOrganizationRepository;
-import me.sonam.role.repo.AuthzManagerRoleUserRepository;
 import me.sonam.role.repo.entity.AuthzManagerRoleOrganization;
 import me.sonam.role.repo.entity.AuthzManagerRoleUser;
 import org.junit.jupiter.api.Test;
@@ -15,7 +14,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Pageable;
 import reactor.test.StepVerifier;
 
-import java.sql.ClientInfoStatus;
 import java.util.UUID;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
@@ -37,21 +35,21 @@ public class AuthzManagerRoleOrganizationRepoTest {
         var authzManagerRoleUser = new AuthzManagerRoleUser(null, authzManagerRoleId, userId);
 
         //AuthzManagerRoleOrganization(UUID id, UUID authzManagerRoleId, UUID organizationId, UUID userId, UUID authzManagerRoleUserId) {
-        var authzManagerRoleOrganization = new AuthzManagerRoleOrganization(null, authzManagerRoleId, organizationId, userId, authzManagerRoleUser.getId());
+        var authzManagerRoleOrganization = new AuthzManagerRoleOrganization(null, authzManagerRoleId, organizationId, userId);
         authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization).subscribe();
 
-        StepVerifier.create(authzManagerRoleOrganizationRepository.existsByAuthzManagerRoleIdAndOrganizationIdAndUserIdAndAuthzManagerRoleUserId(
-                authzManagerRoleId, organizationId, userId, authzManagerRoleUser.getId())).assertNext(val -> {
+        StepVerifier.create(authzManagerRoleOrganizationRepository.existsByAuthzManagerRoleIdAndOrganizationIdAndUserId(
+                authzManagerRoleId, organizationId, userId)).assertNext(val -> {
             assertThat(val).isTrue();
         }).verifyComplete();
 
-        StepVerifier.create(authzManagerRoleOrganizationRepository.existsByAuthzManagerRoleIdAndOrganizationIdAndUserIdAndAuthzManagerRoleUserId(
-                authzManagerRoleId, organizationId, null, authzManagerRoleUser.getId())).assertNext(val -> {
+        StepVerifier.create(authzManagerRoleOrganizationRepository.existsByAuthzManagerRoleIdAndOrganizationIdAndUserId(
+                authzManagerRoleId, organizationId, null)).assertNext(val -> {
             assertThat(val).isFalse();
         }).verifyComplete();
 
-        StepVerifier.create(authzManagerRoleOrganizationRepository.existsByAuthzManagerRoleIdAndOrganizationIdAndUserIdAndAuthzManagerRoleUserId(
-                authzManagerRoleId, UUID.randomUUID(), userId, authzManagerRoleUser.getId())).assertNext(val -> {
+        StepVerifier.create(authzManagerRoleOrganizationRepository.existsByAuthzManagerRoleIdAndOrganizationIdAndUserId(
+                authzManagerRoleId, UUID.randomUUID(), userId)).assertNext(val -> {
             assertThat(val).isFalse();
         }).verifyComplete();
 
@@ -66,15 +64,14 @@ public class AuthzManagerRoleOrganizationRepoTest {
         StepVerifier.create(authzManagerRoleOrganizationRepository.findByAuthzManagerRoleIdAndOrganizationId(authzManagerRoleId, organizationId, pageable).collectList())
                         .assertNext(list -> assertThat(list.size()).isEqualTo(1)).verifyComplete();
 
-        StepVerifier.create(authzManagerRoleOrganizationRepository.findByAuthzManagerRoleIdAndOrganizationIdAndUserIdAndAuthzManagerRoleUserId(
-                authzManagerRoleId, organizationId, userId, authzManagerRoleUser.getId()
-        ).collectList()).assertNext(list -> assertThat(list.size()).isEqualTo(1)).verifyComplete();
+        StepVerifier.create(authzManagerRoleOrganizationRepository.findByAuthzManagerRoleIdAndOrganizationIdAndUserId(
+                authzManagerRoleId, organizationId, userId).collectList()).assertNext(list -> assertThat(list.size()).isEqualTo(1)).verifyComplete();
 
         StepVerifier.create(authzManagerRoleOrganizationRepository.findByAuthzManagerRoleIdAndOrganizationId(authzManagerRoleId,
                 organizationId, Pageable.ofSize(10))
                 .collectList()).assertNext(list -> assertThat(list.size()).isEqualTo(1)).verifyComplete();
 
-        var authzManagerRoleOrganization2 = new AuthzManagerRoleOrganization(null, authzManagerRoleId, organizationId, UUID.randomUUID(), authzManagerRoleUser.getId());
+        var authzManagerRoleOrganization2 = new AuthzManagerRoleOrganization(null, authzManagerRoleId, organizationId, UUID.randomUUID());
         authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization2).subscribe();
 
         StepVerifier.create(authzManagerRoleOrganizationRepository.findByAuthzManagerRoleIdAndOrganizationId(authzManagerRoleId,

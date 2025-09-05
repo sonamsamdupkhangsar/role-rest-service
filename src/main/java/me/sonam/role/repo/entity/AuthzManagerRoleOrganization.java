@@ -12,12 +12,11 @@ public class AuthzManagerRoleOrganization implements Persistable<UUID> {
     private UUID authzManagerRoleId;
     private UUID userId;
     private UUID organizationId;
-    private UUID authzManagerRoleUserId;
 
     @Transient
     private boolean isNew;
 
-    public AuthzManagerRoleOrganization(UUID id, UUID authzManagerRoleId, UUID organizationId, UUID userId, UUID authzManagerRoleUserId) {
+    public AuthzManagerRoleOrganization(UUID id, UUID authzManagerRoleId, UUID organizationId, UUID userId) {
         if (id != null) {
             this.id = id;
             this.isNew = false;
@@ -29,7 +28,6 @@ public class AuthzManagerRoleOrganization implements Persistable<UUID> {
         this.authzManagerRoleId = authzManagerRoleId;
         this.organizationId = organizationId;
         this.userId = userId;
-        this.authzManagerRoleUserId = authzManagerRoleUserId;
     }
 
     public AuthzManagerRoleOrganization() {
@@ -57,10 +55,6 @@ public class AuthzManagerRoleOrganization implements Persistable<UUID> {
         return authzManagerRoleId;
     }
 
-    public UUID getAuthzManagerRoleUserId() {
-        return authzManagerRoleUserId;
-    }
-
     @Override
     public String toString() {
         return "AuthzManagerRoleOrganization{" +
@@ -68,7 +62,6 @@ public class AuthzManagerRoleOrganization implements Persistable<UUID> {
                 ", authzManagerRoleId=" + authzManagerRoleId +
                 ", userId=" + userId +
                 ", organizationId=" + organizationId +
-                ", authzManagerRoleUserId=" + authzManagerRoleUserId +
                 ", isNew=" + isNew +
                 '}';
     }

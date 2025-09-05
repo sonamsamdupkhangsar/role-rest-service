@@ -373,6 +373,26 @@ public class Handler {
                 });
     }
 
+
+    public Mono<ServerResponse> getAuthzManagerRoleIdForName(ServerRequest serverRequest) {
+        LOG.info("get AuthzManagerRole id for name");
+
+        return serverRequest.bodyToMono(String.class)
+                .switchIfEmpty(Mono.error(new RoleException("authzManagerRole name is empty")))
+                .flatMap(authzManagerRoleName -> authzMgrRole.getAuthzManagerRoleId(authzManagerRoleName))
+                .flatMap(id -> {
+                            LOG.info("returning authzManagerRoleId {}", id);
+                            return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON)
+                                    .bodyValue(Map.of("message", id));
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("failed to get id for authzManagerRole name, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
     public Mono<ServerResponse> createAuthzManagerRole(ServerRequest serverRequest) {
         LOG.info("create AuthzManagerRole");
 
@@ -393,33 +413,6 @@ public class Handler {
                 });
     }
 
-    public Mono<ServerResponse> assignUserToAuthzManagerRole(ServerRequest serverRequest) {
-        LOG.info("assign user to AuthzManagerRole");
-
-        return serverRequest.bodyToMono(new ParameterizedTypeReference<Map<String, String>>() {
-                })
-                .switchIfEmpty(Mono.error(new RoleException("map is empty")))
-                .flatMap(map -> {
-                    LOG.info("converting authzManagerRoleId from map {} to UUID", map.get("authzManagerRoleId"));
-                    UUID authzManagerRoleId = UUID.fromString(map.get("authzManagerRoleId"));
-                    LOG.info("converting usreId from map {} to UUID", map.get("userId"));
-                    UUID userId = UUID.fromString(map.get("userId"));
-                    return Mono.just(authzManagerRoleId).zipWith(Mono.just(userId));
-                })
-                .flatMap(objects -> authzMgrRole.assignUsertToAuthzManagerRole(objects.getT1(), objects.getT2()))
-                .flatMap(authzManagerRoleUser -> {
-                            LOG.info("user assigned to authzManagerRole");
-                            return ServerResponse.created(URI.create("/authzmanagerroles/users" + authzManagerRoleUser.getId()))
-                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(authzManagerRoleUser);
-                        }
-                )
-                .onErrorResume(throwable -> {
-                    LOG.error("assign user to authzManagerRole failed, error: {}", throwable.getMessage());
-                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(Map.of("error", throwable.getMessage()));
-                });
-    }
-
     public Mono<ServerResponse> assignOrganizationToAuthzManagerRoleWithUser(ServerRequest serverRequest) {
         LOG.info("create AuthorizationRoleOrganization");
 
@@ -430,19 +423,18 @@ public class Handler {
                     LOG.info("converting input to UUIDs {}", map);
                     UUID authzManagerRoleId = UUID.fromString(map.get("authzManagerRoleId"));
                     UUID userId = UUID.fromString(map.get("userId"));
-                    UUID authzManagerRoleUserId = UUID.fromString(map.get("authzManagerRoleUserId"));
                     UUID organizationId = UUID.fromString(map.get("organizationId"));
 
-                    return authzMgrRole.assignOrganizationToAuthzManagerRoleWithUser(authzManagerRoleId, organizationId, userId, authzManagerRoleUserId);
+                    return authzMgrRole.assignOrganizationToAuthzManagerRoleWithUser(authzManagerRoleId, organizationId, userId);
                 })
                 .flatMap(authzManagerRoleOrganization -> {
-                            LOG.info("returning created");
+                            LOG.info("returning assignOrganizationToAuthzManagerRoleWithUser");
                             return ServerResponse.created(URI.create("/authzmanagerroles/users/organizations" + authzManagerRoleOrganization.getId()))
                                     .contentType(MediaType.APPLICATION_JSON).bodyValue(authzManagerRoleOrganization);
                         }
                 )
                 .onErrorResume(throwable -> {
-                    LOG.error("create role failed, error: {}", throwable.getMessage());
+                    LOG.error("create assignOrganizationToAuthzManagerRoleWithUser failed, error: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
                             .bodyValue(Map.of("error", throwable.getMessage()));
                 });
@@ -456,11 +448,11 @@ public class Handler {
                 .flatMap(role -> {
                             LOG.info("authzManagerRoleOrganization deleted");
                             return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON)
-                                    .bodyValue("User removed from AuthzManagerRoleOrganization");
+                                    .bodyValue(Map.of("message", "User removed from AuthzManagerRoleOrganization"));
                         }
                 )
                 .onErrorResume(throwable -> {
-                    LOG.error("create role failed, error: {}", throwable.getMessage());
+                    LOG.error("deleteUserFromAuthzManagerRoleOrganization failed, error: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
                             .bodyValue(Map.of("error", throwable.getMessage()));
                 });
@@ -494,7 +486,7 @@ public class Handler {
      * @return Pair of userId and superAdmin like <UserId, SuperAdmin> or <UserId, EMPTY>
      */
     public Mono<ServerResponse> areUsersSuperAdminInDefaultOrgId(ServerRequest serverRequest) {
-        LOG.info("get AuthzManagerRoleUser by orgId pathVariable {}", serverRequest.pathVariable("organizationId"));
+        LOG.info("areUsersSuperAdminInDefaultOrgId {}", serverRequest.pathVariable("organizationId"));
         UUID organizationId = UUID.fromString(serverRequest.pathVariable("organizationId"));
 
         return serverRequest.bodyToMono(new ParameterizedTypeReference<List<UUID>>() {
@@ -508,7 +500,68 @@ public class Handler {
                         }
                 )
                 .onErrorResume(throwable -> {
-                    LOG.error("create authzManagerRole failed, error: {}", throwable.getMessage());
+                    LOG.error("areUsersSuperAdminInDefaultOrgId failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    /**
+     * This method return a boolean if the userId has the role of "SuperAdmin" in organizationId
+     * @param serverRequest  request object
+     * @return boolean to indicate if is a SuperAdmin or not
+     */
+    public Mono<ServerResponse>  isSuperAdminInDefaultOrgId(ServerRequest serverRequest) {
+        LOG.info("extract orgId and userId from serverRequest");
+        UUID organizationId = UUID.fromString(serverRequest.pathVariable("organizationId"));
+        UUID userId = UUID.fromString(serverRequest.pathVariable("userId"));
+
+        return authzMgrRole.isUserSuperAdminByOrgId(userId, organizationId)
+                .flatMap(value -> {
+                            LOG.info("is user superAdmin? : {}", value);
+                            return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON)
+                                    .bodyValue(Map.of("message", value));
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("isUserSuperAdminByOrgId call failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+
+
+    public Mono<ServerResponse> getSuperAdminOrganizations(ServerRequest serverRequest) {
+        LOG.info("get super admin organizations for logged-in user");
+        Pageable pageable = Util.getPageable(serverRequest);
+
+        return  authzMgrRole.getSuperAdminOrganizations(pageable)
+                .flatMap(uuidList -> {
+                            LOG.info("get super admin organizations");
+                            return ServerResponse.ok()
+                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(uuidList);
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("getSuperAdminOrganizations for logged-in user failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    public Mono<ServerResponse> getSuperAdminOrganizationsCount(ServerRequest serverRequest) {
+        LOG.info("get super admin organizations count for logged-in user");
+
+        return  authzMgrRole.getSuperAdminOrganizationsCount()
+                .flatMap(count -> {
+                            LOG.info("returning count of superadmin organizations count");
+                            return ServerResponse.ok()
+                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(Map.of("message", count));
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("getSuperAdminOrganizations count for logged-in user failed, error: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
                             .bodyValue(Map.of("error", throwable.getMessage()));
                 });

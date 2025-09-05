@@ -32,24 +32,22 @@ public class AuthzManagerRoleTest {
         assertThat(authzManagerRoleUser.getUserId()).isEqualTo(userId);
 
         //when the user creates any entity such as client, role, organization, assign the authzManagerRoleUser.Id and create this entity
-        AuthzManagerRoleOrganization authzManagerRoleOrganization  = new AuthzManagerRoleOrganization(null, authzManagerRole.getId(), orgId, userId, authzManagerRoleUser.getId());
+        AuthzManagerRoleOrganization authzManagerRoleOrganization  = new AuthzManagerRoleOrganization(null, authzManagerRole.getId(), orgId, userId);
         assertThat(authzManagerRoleOrganization.getId()).isNotNull();
         assertThat(authzManagerRoleOrganization.getAuthzManagerRoleId()).isEqualTo(authzManagerRole.getId());
         assertThat(authzManagerRoleOrganization.getOrganizationId()).isEqualTo(orgId);
         assertThat(authzManagerRoleOrganization.getUserId()).isEqualTo(userId);
-        assertThat(authzManagerRoleOrganization.getAuthzManagerRoleUserId()).isEqualTo(authzManagerRoleUser.getId());
 
         //when user creates a client assign the authzManagerRoleUser.id as the owner
         //new Client(ownerId=authzManagerRoleUser.id)
 
         UUID user2Id = UUID.randomUUID();
         //when the current SuperAdmin makes another user a SuperAdmin
-        var authzManagerRoleOrganization2  = new AuthzManagerRoleOrganization(null, authzManagerRole.getId(), orgId, user2Id, authzManagerRoleUser.getId());
+        var authzManagerRoleOrganization2  = new AuthzManagerRoleOrganization(null, authzManagerRole.getId(), orgId, user2Id);
         assertThat(authzManagerRoleOrganization2.getId()).isNotNull();
         assertThat(authzManagerRoleOrganization2.getAuthzManagerRoleId()).isEqualTo(authzManagerRole.getId());
         assertThat(authzManagerRoleOrganization2.getOrganizationId()).isEqualTo(orgId);
         assertThat(authzManagerRoleOrganization2.getUserId()).isEqualTo(user2Id);
-        assertThat(authzManagerRoleOrganization2.getAuthzManagerRoleUserId()).isEqualTo(authzManagerRoleUser.getId());
 
 
         //when looking up clients by owner get by authzmanagerRoleUserId, put this attribute in the token
