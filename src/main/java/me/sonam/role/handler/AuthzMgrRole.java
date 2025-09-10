@@ -28,4 +28,5 @@ public interface AuthzMgrRole {
     Mono<List<UUID>> getSuperAdminOrganizations(Pageable pageable);
     Mono<Integer> getSuperAdminOrganizationsCount();
     Mono<Boolean> isUserSuperAdminByOrgId(UUID userId, UUID organizationId);
+    Mono<AuthzManagerRoleOrganization> setUserAsAuthzManagerRoleNameForOrganization(String authzManagerRoleName, UUID organizationId, UUID userId);
 }

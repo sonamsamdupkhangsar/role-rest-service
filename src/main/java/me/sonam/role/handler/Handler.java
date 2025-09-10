@@ -413,6 +413,12 @@ public class Handler {
                 });
     }
 
+    /**
+     * This creates a user as with AuthzManagerRole user, For example it can create a user with SuperAdmin role for a organization
+     * @param serverRequest
+     * @return
+     */
+
     public Mono<ServerResponse> assignOrganizationToAuthzManagerRoleWithUser(ServerRequest serverRequest) {
         LOG.info("create AuthorizationRoleOrganization");
 
@@ -435,6 +441,39 @@ public class Handler {
                 )
                 .onErrorResume(throwable -> {
                     LOG.error("create assignOrganizationToAuthzManagerRoleWithUser failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    /**
+     * This method is similar to above method {{@link #assignOrganizationToAuthzManagerRoleWithUser(ServerRequest)}} except
+     * this can take the authzManagerRoleName as String and assign user with that role to a orgId
+     * @param serverRequest get user payload
+     * @return authzManagerRoleOrganization object
+     */
+    public Mono<ServerResponse> setUserAsAuthzManagerRoleForOrganization(ServerRequest serverRequest) {
+        LOG.info("handler for setting user as authzManagerRole for org");
+
+        return serverRequest.bodyToMono(new ParameterizedTypeReference<Map<String, String>>() {
+                })
+                .switchIfEmpty(Mono.error(new RoleException("map is empty")))
+                .flatMap(map -> {
+                    LOG.info("get payload from map {}", map);
+                    String authzManagerRoleName = map.get("authzManagerRoleName");
+                    UUID userId = UUID.fromString(map.get("userId"));
+                    UUID organizationId = UUID.fromString(map.get("organizationId"));
+
+                    return authzMgrRole.setUserAsAuthzManagerRoleNameForOrganization(authzManagerRoleName, organizationId, userId);
+                })
+                .flatMap(authzManagerRoleOrganization -> {
+                            LOG.info("user has been set as authzManagerRoleName for organization");
+                            return ServerResponse.created(URI.create("/authzmanagerroles/users/organizations" + authzManagerRoleOrganization.getId()))
+                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(authzManagerRoleOrganization);
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("failed to set user as authzManagerRoleName for orgId, error: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
                             .bodyValue(Map.of("error", throwable.getMessage()));
                 });
@@ -511,7 +550,7 @@ public class Handler {
      * @param serverRequest  request object
      * @return boolean to indicate if is a SuperAdmin or not
      */
-    public Mono<ServerResponse>  isSuperAdminInDefaultOrgId(ServerRequest serverRequest) {
+    public Mono<ServerResponse> isSuperAdminInOrgId(ServerRequest serverRequest) {
         LOG.info("extract orgId and userId from serverRequest");
         UUID organizationId = UUID.fromString(serverRequest.pathVariable("organizationId"));
         UUID userId = UUID.fromString(serverRequest.pathVariable("userId"));

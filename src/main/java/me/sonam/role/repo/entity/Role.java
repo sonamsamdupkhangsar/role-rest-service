@@ -17,6 +17,8 @@ public class Role implements Persistable<UUID> {
     private String name;
 
     private UUID userId;
+    private UUID organizationId;
+
     @Transient
     private boolean isNew;
 

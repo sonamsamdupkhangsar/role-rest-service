@@ -51,10 +51,11 @@ public class Router {
                 .andRoute(POST("/roles/authzmanagerroles").and(accept(MediaType.APPLICATION_JSON)), handler::createAuthzManagerRole)
                 .andRoute(PUT("/roles/authzmanagerroles/name").and(accept(MediaType.APPLICATION_JSON)), handler::getAuthzManagerRoleIdForName)
                 .andRoute(POST("/roles/authzmanagerroles/users/organizations"), handler::assignOrganizationToAuthzManagerRoleWithUser)
+                .andRoute(POST("/roles/authzmanagerroles/names/users/organizations"), handler::setUserAsAuthzManagerRoleForOrganization)
                 .andRoute(DELETE("/roles/authzmanagerroles/users/organizations/{id}"), handler::deleteUserFromAuthzManagerRoleOrganization)
                 .andRoute(GET("/roles/authzmanagerroles/{authzManagerRoleId}/users/organizations/{organizationId}"), handler::getAuthzManagerRoleByOrgId)
                 .andRoute(PUT("/roles/authzmanagerroles/users/organizations/{organizationId}"), handler::areUsersSuperAdminInDefaultOrgId)
-                .andRoute(GET("/roles/authzmanagerroles/users/{userId}/organizations/{organizationId}"), handler::isSuperAdminInDefaultOrgId)
+                .andRoute(GET("/roles/authzmanagerroles/users/{userId}/organizations/{organizationId}"), handler::isSuperAdminInOrgId)
                 .andRoute(GET("/roles/authzmanagerroles/users/organizations"), handler::getSuperAdminOrganizations)
                 .andRoute(GET("/roles/authzmanagerroles/users/organizations/count"), handler::getSuperAdminOrganizationsCount);
 

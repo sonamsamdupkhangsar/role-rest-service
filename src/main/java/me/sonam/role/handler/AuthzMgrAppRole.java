@@ -102,6 +102,28 @@ public class AuthzMgrAppRole implements AuthzMgrRole{
         });
     }
 
+    @Override
+    public Mono<AuthzManagerRoleOrganization> setUserAsAuthzManagerRoleNameForOrganization(String authzManagerRoleName, UUID organizationId, UUID userId) {
+        LOG.info("set user.id {} as authzManagerRoleName: {} in organization: {}", authzManagerRoleName, organizationId, userId);
+        return authzManagerRoleRepository.findByName(authzManagerRoleName).switchIfEmpty(Mono.error(new RoleException("No authzManagerRole with name "+authzManagerRoleName)))
+                .flatMap(authzManagerRole -> authzManagerRoleOrganizationRepository.existsByAuthzManagerRoleIdAndOrganizationIdAndUserId(
+                        authzManagerRole.getId(), organizationId, userId).zipWith(Mono.just(authzManagerRole)))
+                .flatMap(objects -> {
+                    if(!objects.getT1()) {
+                        LOG.info("create authzRoleManagerUser for authzManagerRoleId {}, userId {}", objects.getT2().getId(), userId);
+                        var authzManagerRoleOrganization = new AuthzManagerRoleOrganization
+                                (null, objects.getT2().getId(), organizationId, userId);
+                        return authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization)
+                                .thenReturn(authzManagerRoleOrganization);
+                    }
+                    else {
+                        LOG.warn("authzManagerRoleUser with userId already exists");
+                        return authzManagerRoleOrganizationRepository.findByAuthzManagerRoleIdAndOrganizationIdAndUserId(
+                                objects.getT2().getId(), organizationId, userId).single();
+                    }
+                });
+    }
+
     /**
      * This is called to delete user from authzManagerRoleOrganization
      * @return
