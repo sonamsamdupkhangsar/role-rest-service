@@ -19,4 +19,7 @@ public interface AuthzManagerRoleOrganizationRepository extends ReactiveCrudRepo
     Mono<Boolean> existsByUserIdAndAuthzManagerRoleIdAndOrganizationId(UUID userId, UUID authzManagerRoleId, UUID organizationID);
     Flux<AuthzManagerRoleOrganization> findByUserIdAndAuthzManagerRoleId(UUID userId, UUID authzManagerRoleId, Pageable pageable);
     Mono<Integer> countByUserIdAndAuthzManagerRoleId(UUID userId, UUID authzManagerRoleId);
+
+    Mono<Long> deleteByOrganizationId(UUID organizationId);
+    Mono<Long> deleteByOrganizationIdAndUserId(UUID organizationId, UUID userId);
 }

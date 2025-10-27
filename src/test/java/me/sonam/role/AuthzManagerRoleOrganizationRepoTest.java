@@ -3,7 +3,6 @@ package me.sonam.role;
 
 import me.sonam.role.repo.AuthzManagerRoleOrganizationRepository;
 import me.sonam.role.repo.entity.AuthzManagerRoleOrganization;
-import me.sonam.role.repo.entity.AuthzManagerRoleUser;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +31,6 @@ public class AuthzManagerRoleOrganizationRepoTest {
         UUID authzManagerRoleId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
         UUID organizationId = UUID.randomUUID();
-        var authzManagerRoleUser = new AuthzManagerRoleUser(null, authzManagerRoleId, userId);
 
         //AuthzManagerRoleOrganization(UUID id, UUID authzManagerRoleId, UUID organizationId, UUID userId, UUID authzManagerRoleUserId) {
         var authzManagerRoleOrganization = new AuthzManagerRoleOrganization(null, authzManagerRoleId, organizationId, userId);

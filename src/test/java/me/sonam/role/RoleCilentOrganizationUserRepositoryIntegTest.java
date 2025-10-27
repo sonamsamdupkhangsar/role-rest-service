@@ -1,7 +1,7 @@
 package me.sonam.role;
 
 import me.sonam.role.handler.RoleException;
-import me.sonam.role.repo.RoleClientOrganizationUserRepository;
+import me.sonam.role.repo.ClientOrganizationUserRoleRepository;
 import me.sonam.role.repo.entity.ClientOrganizationUserRole;
 
 import org.junit.jupiter.api.Test;
@@ -23,7 +23,7 @@ public class RoleCilentOrganizationUserRepositoryIntegTest {
     private static final Logger LOG = LoggerFactory.getLogger(RoleCilentOrganizationUserRepositoryIntegTest.class);
 
     @Autowired
-    private RoleClientOrganizationUserRepository roleClientOrganizationUserRepository;
+    private ClientOrganizationUserRoleRepository clientOrganizationUserRoleRepository;
 
     @Test
     public void testMultipleUserIds() {
@@ -41,29 +41,29 @@ public class RoleCilentOrganizationUserRepositoryIntegTest {
 
 
         ClientOrganizationUserRole rou = new ClientOrganizationUserRole(null, roleId, clientId, organizationId, userId1);
-        roleClientOrganizationUserRepository.save(rou).subscribe(roleClientOrganizationUser -> LOG.info("saved rou1: {}", roleClientOrganizationUser));
+        clientOrganizationUserRoleRepository.save(rou).subscribe(roleClientOrganizationUser -> LOG.info("saved rou1: {}", roleClientOrganizationUser));
 
         rou = new ClientOrganizationUserRole(null, roleId, clientId, organizationId, userId2);
-        roleClientOrganizationUserRepository.save(rou).subscribe(roleClientOrganizationUser -> LOG.info("saved rou2: {}", roleClientOrganizationUser));
+        clientOrganizationUserRoleRepository.save(rou).subscribe(roleClientOrganizationUser -> LOG.info("saved rou2: {}", roleClientOrganizationUser));
 
         rou = new ClientOrganizationUserRole(null, roleId, clientId, organizationId, userId3);
-        roleClientOrganizationUserRepository.save(rou).subscribe(roleClientOrganizationUser -> LOG.info("saved rou3: {}", roleClientOrganizationUser));
+        clientOrganizationUserRoleRepository.save(rou).subscribe(roleClientOrganizationUser -> LOG.info("saved rou3: {}", roleClientOrganizationUser));
 
         rou = new ClientOrganizationUserRole(null, roleId, clientId, organizationId, userId4);
-        roleClientOrganizationUserRepository.save(rou).subscribe(roleClientOrganizationUser -> LOG.info("saved rou4: {}", roleClientOrganizationUser));
+        clientOrganizationUserRoleRepository.save(rou).subscribe(roleClientOrganizationUser -> LOG.info("saved rou4: {}", roleClientOrganizationUser));
 
         rou = new ClientOrganizationUserRole(null, roleId, clientId, organizationId, userId5);
-        roleClientOrganizationUserRepository.save(rou).subscribe(roleClientOrganizationUser -> LOG.info("saved rou5: {}", roleClientOrganizationUser));
+        clientOrganizationUserRoleRepository.save(rou).subscribe(roleClientOrganizationUser -> LOG.info("saved rou5: {}", roleClientOrganizationUser));
 
 
 
-        roleClientOrganizationUserRepository.findByClientIdAndOrganizationIdAndUserIdIn(clientId, organizationId, uuidList)
+        clientOrganizationUserRoleRepository.findByClientIdAndOrganizationIdAndUserIdIn(clientId, organizationId, uuidList)
                 .subscribe(roleClientOrganizationUser -> LOG.info("found roleClientOrganizationUser: {}", roleClientOrganizationUser));
 
         UUID userId6 = UUID.randomUUID();
         LOG.info("userId6: {}", userId6);
 
-        Flux<ClientOrganizationUserRole> roleClientOrganizationUserFlux =  roleClientOrganizationUserRepository.findByClientIdAndOrganizationIdAndUserIdIn(clientId, organizationId, List.of(userId1, userId2, userId3, userId4, userId5, userId6));
+        Flux<ClientOrganizationUserRole> roleClientOrganizationUserFlux =  clientOrganizationUserRoleRepository.findByClientIdAndOrganizationIdAndUserIdIn(clientId, organizationId, List.of(userId1, userId2, userId3, userId4, userId5, userId6));
 
         StepVerifier.create(roleClientOrganizationUserFlux).assertNext(roleClientOrganizationUser -> {
             assertEquals(roleClientOrganizationUser.getOrganizationId(), organizationId);
@@ -120,7 +120,7 @@ public class RoleCilentOrganizationUserRepositoryIntegTest {
         List<UUID> uuidList = List.of(userId1, userId2, userId3, userId4, userId5);
 
 
-        Flux<ClientOrganizationUserRole> roleClientOrganizationUserFlux =  roleClientOrganizationUserRepository.findByClientIdAndOrganizationIdAndUserIdIn(clientId, organizationId, List.of(userId1, userId2, userId3, userId4, userId5));
+        Flux<ClientOrganizationUserRole> roleClientOrganizationUserFlux =  clientOrganizationUserRoleRepository.findByClientIdAndOrganizationIdAndUserIdIn(clientId, organizationId, List.of(userId1, userId2, userId3, userId4, userId5));
         roleClientOrganizationUserFlux.switchIfEmpty(Mono.error(new RoleException("empty hellooo"))).flatMap(roleClientOrganizationUser -> {
             LOG.info("got roleClientOrganization with no match: {}", roleClientOrganizationUser);
             return Mono.just("hello");
@@ -130,7 +130,7 @@ public class RoleCilentOrganizationUserRepositoryIntegTest {
                     return Mono.just("data not available");
                 }).subscribe(s -> LOG.info("hello"));
 
-        roleClientOrganizationUserFlux =  roleClientOrganizationUserRepository.findByClientIdAndOrganizationIdAndUserIdIn(clientId, organizationId, List.of(userId1, userId2, userId3, userId4, userId5));
+        roleClientOrganizationUserFlux =  clientOrganizationUserRoleRepository.findByClientIdAndOrganizationIdAndUserIdIn(clientId, organizationId, List.of(userId1, userId2, userId3, userId4, userId5));
         StepVerifier.create(roleClientOrganizationUserFlux).expectSubscription().verifyComplete();
     }
 }

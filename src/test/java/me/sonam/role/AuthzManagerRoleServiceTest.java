@@ -3,10 +3,9 @@ package me.sonam.role;
 
 import me.sonam.role.repo.AuthzManagerRoleOrganizationRepository;
 import me.sonam.role.repo.AuthzManagerRoleRepository;
-import me.sonam.role.repo.AuthzManagerRoleUserRepository;
+
 import me.sonam.role.repo.entity.AuthzManagerRole;
 import me.sonam.role.repo.entity.AuthzManagerRoleOrganization;
-import me.sonam.role.repo.entity.AuthzManagerRoleUser;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,6 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
@@ -56,8 +56,6 @@ public class AuthzManagerRoleServiceTest {
     @Autowired
     private AuthzManagerRoleRepository authzManagerRoleRepository;
 
-    @Autowired
-    private AuthzManagerRoleUserRepository authzManagerRoleUserRepository;
 
     @org.junit.jupiter.api.BeforeEach
     public void setup() {
@@ -245,7 +243,6 @@ public class AuthzManagerRoleServiceTest {
         var authzManagerRole = new AuthzManagerRole(null, "SuperAdmin");
         authzManagerRoleRepository.save(authzManagerRole).subscribe();
         UUID organizationId = UUID.randomUUID();
-        var authzManagerRoleUser = new AuthzManagerRoleUser(null, authzManagerRoleId, userId1);
 
         var authzManagerRoleOrganization1 = new AuthzManagerRoleOrganization(null, authzManagerRoleId, organizationId, userId1);
         authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization1).subscribe();
@@ -489,7 +486,7 @@ public class AuthzManagerRoleServiceTest {
 
     }
 
-        @Test
+    @Test
     public void getSuperAdminOrganizationForLoggedInUser() {
         final String authenticationId = "sonam";
 
@@ -522,57 +519,63 @@ public class AuthzManagerRoleServiceTest {
 
         LOG.info("get list of organizations this user is superAdmin for");
 
-        EntityExchangeResult<List<UUID>> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt))
-                .get().uri("/roles/authzmanagerroles/users/organizations")
-                .headers(addJwt(jwt)).exchange()//.expectStatus().isEqualTo(201)
-                .expectBody(new ParameterizedTypeReference<List<UUID>>() {
-                })
-                .returnResult();
+        Mono<RestPage<UUID>> pageMono = webTestClient.mutateWith(mockJwt().jwt(jwt))
+                .get().uri("/roles/authzmanagerroles/users/organizations?page=0&size=10")
+                .headers(addJwt(jwt)).exchange().returnResult(new ParameterizedTypeReference<RestPage<UUID>>() {})
+                .getResponseBody().single();
 
-        LOG.info("result: {}", entityExchangeResult.getResponseBody());
+        StepVerifier.create(pageMono).assertNext(page -> {
+            LOG.info("got page of uuids {}", page.getContent());
+            List<UUID> list = page.getContent();
 
-        List<UUID> list = entityExchangeResult.getResponseBody();
-        assertThat(list.size()).isEqualTo(3);
-        assertThat(list.contains(organizationId1)).isTrue();
-        assertThat(list.contains(organizationId2)).isTrue();
-        assertThat(list.contains(organizationId3)).isTrue();
+            assertThat(list.size()).isEqualTo(3);
+            assertThat(list.contains(organizationId1)).isTrue();
+            assertThat(list.contains(organizationId2)).isTrue();
+            assertThat(list.contains(organizationId3)).isTrue();
 
-        UUID invalidOrgId = UUID.randomUUID();
-        assertThat(list.contains(invalidOrgId)).isFalse();
+            UUID invalidOrgId = UUID.randomUUID();
+            assertThat(list.contains(invalidOrgId)).isFalse();
+
+        }).verifyComplete();
 
         LOG.info("get only 1 item in the page");
-        entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt))
+        pageMono = webTestClient.mutateWith(mockJwt().jwt(jwt))
                 .get().uri("/roles/authzmanagerroles/users/organizations?page=0&size=1")
-                .headers(addJwt(jwt)).exchange()//.expectStatus().isEqualTo(201)
-                .expectBody(new ParameterizedTypeReference<List<UUID>>() {
-                })
-                .returnResult();
+                .headers(addJwt(jwt)).exchange().returnResult(new ParameterizedTypeReference<RestPage<UUID>>() {})
+                .getResponseBody().single();
 
-        list = entityExchangeResult.getResponseBody();
-        assertThat(list.size()).isEqualTo(1);
-        assertThat(list.contains(organizationId1)).isTrue();
+        StepVerifier.create(pageMono).assertNext(page -> {
+            List<UUID> list = page.getContent();
 
-        entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt))
+            assertThat(list.size()).isEqualTo(1);
+            assertThat(list.contains(organizationId1)).isTrue();
+        }).verifyComplete();
+
+        pageMono = webTestClient.mutateWith(mockJwt().jwt(jwt))
                 .get().uri("/roles/authzmanagerroles/users/organizations?page=1&size=1")
-                .headers(addJwt(jwt)).exchange()//.expectStatus().isEqualTo(201)
-                .expectBody(new ParameterizedTypeReference<List<UUID>>() {
-                })
-                .returnResult();
+                .headers(addJwt(jwt)).exchange().returnResult(new ParameterizedTypeReference<RestPage<UUID>>() {})
+                .getResponseBody().single();
 
-        list = entityExchangeResult.getResponseBody();
-        assertThat(list.size()).isEqualTo(1);
-        assertThat(list.contains(organizationId2)).isTrue();
+        StepVerifier.create(pageMono).assertNext(page -> {
+            List<UUID> list = page.getContent();
 
-        entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt))
+            assertThat(list.size()).isEqualTo(1);
+            assertThat(list.contains(organizationId2)).isTrue();
+
+        }).verifyComplete();
+
+        pageMono = webTestClient.mutateWith(mockJwt().jwt(jwt))
                 .get().uri("/roles/authzmanagerroles/users/organizations?page=2&size=1")
-                .headers(addJwt(jwt)).exchange()//.expectStatus().isEqualTo(201)
-                .expectBody(new ParameterizedTypeReference<List<UUID>>() {
-                })
-                .returnResult();
+                .headers(addJwt(jwt)).exchange().returnResult(new ParameterizedTypeReference<RestPage<UUID>>() {})
+                .getResponseBody().single();
 
-        list = entityExchangeResult.getResponseBody();
-        assertThat(list.size()).isEqualTo(1);
-        assertThat(list.contains(organizationId3)).isTrue();
+        StepVerifier.create(pageMono).assertNext(page -> {
+            List<UUID> list = page.getContent();
+
+            assertThat(list.size()).isEqualTo(1);
+            assertThat(list.contains(organizationId3)).isTrue();
+
+        }).verifyComplete();
 
         LOG.info("get the total size of organizations assoicated to logged-in user");
 

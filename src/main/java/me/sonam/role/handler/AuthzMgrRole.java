@@ -25,7 +25,7 @@ public interface AuthzMgrRole {
     Mono<String> deleteUserFromAuthzManagerRoleOrganization(UUID authzManagerRoleOrganizationId);
     Mono<Page<UUID>> getUserIdByAuthzManagerRoleIdAndOrgId(UUID authzManagerRoleId, UUID organizationId, Pageable pageable);
     Mono<Map<UUID, UUID>>  areUsersSuperAdminByOrgId(List<UUID> userIdsList, UUID organizationId);
-    Mono<List<UUID>> getSuperAdminOrganizations(Pageable pageable);
+    Mono<Page<UUID>> getSuperAdminOrganizations(Pageable pageable);
     Mono<Integer> getSuperAdminOrganizationsCount();
     Mono<Boolean> isUserSuperAdminByOrgId(UUID userId, UUID organizationId);
     Mono<AuthzManagerRoleOrganization> setUserAsAuthzManagerRoleNameForOrganization(String authzManagerRoleName, UUID organizationId, UUID userId);

@@ -1,5 +1,8 @@
 package me.sonam.role.handler.service.carrier;
 
+import me.sonam.role.repo.entity.ClientOrganizationUserRole;
+import me.sonam.role.repo.entity.Role;
+
 import java.util.Objects;
 import java.util.UUID;
 
@@ -8,13 +11,17 @@ public class ClientOrganizationUserWithRole {
     private UUID clientId;
     private UUID organizationId;
     private User user;
-
-    public ClientOrganizationUserWithRole(UUID id, UUID clientId, UUID organizationId, User user) {
+    private Role role;
+    public ClientOrganizationUserWithRole() {
+    }
+    public ClientOrganizationUserWithRole(UUID id, UUID clientId, UUID organizationId, User user, Role role) {
         this.id = id;
         this.clientId = clientId;
         this.organizationId = organizationId;
         this.user = user;
+        this.role = role;
     }
+
 
     public UUID getId() {
         return id;
@@ -48,8 +55,15 @@ public class ClientOrganizationUserWithRole {
         this.user = user;
     }
 
-    public ClientOrganizationUserWithRole() {
+    public Role getRole() {
+        return role;
     }
+
+    public void setRole(Role role) {
+        this.role = role;
+    }
+
+
 
     @Override
     public boolean equals(Object o) {

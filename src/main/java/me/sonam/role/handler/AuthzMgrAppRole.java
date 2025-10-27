@@ -1,12 +1,10 @@
 package me.sonam.role.handler;
 
-import jakarta.annotation.PostConstruct;
 import me.sonam.role.repo.AuthzManagerRoleOrganizationRepository;
 import me.sonam.role.repo.AuthzManagerRoleRepository;
-import me.sonam.role.repo.AuthzManagerRoleUserRepository;
 import me.sonam.role.repo.entity.AuthzManagerRole;
 import me.sonam.role.repo.entity.AuthzManagerRoleOrganization;
-import me.sonam.role.repo.entity.AuthzManagerRoleUser;
+import me.sonam.role.rest.RestPage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,8 +27,6 @@ public class AuthzMgrAppRole implements AuthzMgrRole{
     private AuthzManagerRoleRepository authzManagerRoleRepository;
     @Autowired
     private AuthzManagerRoleOrganizationRepository authzManagerRoleOrganizationRepository;
-    @Autowired
-    private AuthzManagerRoleUserRepository authzManagerRoleUserRepository;
 
     //@PostConstruct
     public void createSuperAdminRole() {
@@ -183,7 +179,7 @@ public class AuthzMgrAppRole implements AuthzMgrRole{
     }
 
     @Override
-    public Mono<List<UUID>> getSuperAdminOrganizations(Pageable pageable) {
+    public Mono<Page<UUID>> getSuperAdminOrganizations(Pageable pageable) {
         LOG.info("get super admin organization ids for logged-in user with jwt for pageNumber: {} and pageSize: {}", pageable.getPageNumber(), pageable.getPageSize());
 
         return ReactiveSecurityContextHolder.getContext().flatMap(securityContext -> {
@@ -201,16 +197,22 @@ public class AuthzMgrAppRole implements AuthzMgrRole{
                     .flatMap(authzManagerRole -> Mono.just(authzManagerRole.getId()))
                     .flatMap(authzManagerRoleId -> {
                             LOG.info("authzManagerRole {}", authzManagerRoleId);
-                      return     authzManagerRoleOrganizationRepository.
-                            findByUserIdAndAuthzManagerRoleId(userId, authzManagerRoleId, pageable).collectList();
+                      return authzManagerRoleOrganizationRepository.findByUserIdAndAuthzManagerRoleId(userId,
+                              authzManagerRoleId, pageable).collectList().zipWith(Mono.just(authzManagerRoleId));
                     })
-                    .flatMap(list -> {
-                        LOG.info("list of userIds with AuthzManagerRoleId and orgId {}", list);
-                        Map<UUID, UUID> map = new HashMap<>();
-                        List<UUID> organizationIds = new ArrayList<>();
+                    .flatMap(objects -> authzManagerRoleOrganizationRepository.countByUserIdAndAuthzManagerRoleId(userId,
+                            objects.getT2()).zipWith(Mono.just(objects.getT1())))
+                    .flatMap(objects -> {
+                        int count = objects.getT1();
+                        List<AuthzManagerRoleOrganization> list = objects.getT2();
 
+                        List<UUID> organizationIds = new ArrayList<>();
                         list.forEach(authzManagerRoleOrganization -> organizationIds.add(authzManagerRoleOrganization.getOrganizationId()));
-                        return Mono.just(organizationIds);
+
+                        LOG.info("got count of authzManagerRoleOrganization of userId and superAdmin role: {}", count);
+                        Page<UUID> page = new RestPage<>(organizationIds, pageable.getPageNumber(),
+                                pageable.getPageSize(), count, list.size(), pageable.getPageNumber());
+                        return Mono.just(page);
                     });
             });
     }
