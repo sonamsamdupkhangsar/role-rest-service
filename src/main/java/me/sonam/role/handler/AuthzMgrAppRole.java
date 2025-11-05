@@ -1,5 +1,6 @@
 package me.sonam.role.handler;
 
+import jakarta.annotation.PostConstruct;
 import me.sonam.role.repo.AuthzManagerRoleOrganizationRepository;
 import me.sonam.role.repo.AuthzManagerRoleRepository;
 import me.sonam.role.repo.entity.AuthzManagerRole;
@@ -28,22 +29,22 @@ public class AuthzMgrAppRole implements AuthzMgrRole{
     @Autowired
     private AuthzManagerRoleOrganizationRepository authzManagerRoleOrganizationRepository;
 
-    //@PostConstruct
+    @PostConstruct
     public void createSuperAdminRole() {
         final String superAdmin = "SuperAdmin";
 
         authzManagerRoleRepository.deleteAll().subscribe();
 
         authzManagerRoleRepository.countByName(superAdmin).flatMap(count -> {
-            if (count > 1) {
-                return authzManagerRoleRepository.deleteAll().thenReturn("deleted");
+            if (count < 1) {
+                LOG.info("creating {} role", superAdmin);
+                return authzManagerRoleRepository.save(new AuthzManagerRole(null, "SuperAdmin"))
+                        .thenReturn("saved");
+            } else {
+                LOG.info("{} role already exists", superAdmin);
+                return Mono.just("superAdmin role already exists");
             }
-            else {
-                return Mono.just("count is only 1");
-            }
-        }).flatMap(object ->
-                authzManagerRoleRepository.save(new AuthzManagerRole(null, "SuperAdmin")))
-                .subscribe();
+        }).subscribe();
     }
 
     @Override
