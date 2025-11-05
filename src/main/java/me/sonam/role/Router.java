@@ -27,27 +27,33 @@ public class Router {
                 .andRoute(PUT("/roles").and(accept(MediaType.APPLICATION_JSON)), handler::updateRole)
                 .andRoute(GET("/roles/{id}").and(accept(MediaType.APPLICATION_JSON)), handler::getRole)
                 .andRoute(DELETE("/roles/{id}").and(accept(MediaType.APPLICATION_JSON)), handler::deleteRole)
-
-                //.andRoute(GET("/roles/{id}/organization-id").and(accept(MediaType.APPLICATION_JSON)), handler::getRoleClientUsersByClientAndUserId)
-                .andRoute(GET("/roles/organizations/{organizationId}").and(accept(MediaType.APPLICATION_JSON)), handler::getOrganizationRoles) //returns page of roles for organization-id
-                .andRoute(POST("/roles/organizations").and(accept(MediaType.APPLICATION_JSON)), handler::addRoleToOrganization)
-                .andRoute(DELETE("/roles/{roleId}/organizations/{organizationId}").and(accept(MediaType.APPLICATION_JSON)), handler::deleteRoleOrganization)
-                .andRoute(GET("/roles/users/{userId}").and(accept(MediaType.APPLICATION_JSON)), handler::getRolesForUser)  //gets roles for user by user-id
-                .andRoute(GET("/roles/user-id/{userId}"), handler::getRolesByUserId)
+                .andRoute(GET("/roles/organizations/{organizationId}").and(accept(MediaType.APPLICATION_JSON)),
+                        handler::getRolesByOrganizationId) //returns page of roles for organization-id
 
 
-                .andRoute(GET("/roles/client-users/client-id/{clientId}").and(accept(MediaType.APPLICATION_JSON)), handler::getClientUserRolePage)// get RoleClientUsers by clientId
-                //this method is called in authentication-rest-service in authentication
-                .andRoute(GET("/roles/client-users/client-id/{clientId}/user-id/{userId}").and(accept(MediaType.APPLICATION_JSON)), handler::getClientUserRoles) // get RoleClientUsers by clientId and userId
+                .andRoute(POST("/roles/clients/organizations/users/roles")
+                        .and(accept(MediaType.APPLICATION_JSON)), handler::addClientOrganizationUserRole)
+//                .andRoute(GET("/roles/client-organization-users/client-id/{clientId}/organization-id/{organizationId}/user-ids/{userIds}")
+                .andRoute(PUT("/roles/clients/{clientId}/organizations/{organizationId}/users/roles")
+                        .and(accept(MediaType.APPLICATION_JSON)), handler::getClientOrganziationUserWithRoles)
+                .andRoute(GET("/roles/clients/{clientId}/organizations/{organizationId}/users/{userId}/roles")
+                        .and(accept(MediaType.APPLICATION_JSON)), handler::getRoleIdForClientOrganziationUser)
+                .andRoute(DELETE("/roles/clients/organizations/users/roles/{id}").and(accept(MediaType.APPLICATION_JSON)), handler::deleteClientOrganizationUserRoleById)
 
-                .andRoute(POST("/roles/client-users").and(accept(MediaType.APPLICATION_JSON)), handler::addClientUserRole)
-                .andRoute(PUT("/roles/client-users").and(accept(MediaType.APPLICATION_JSON)), handler::updateClientUserRole)
-                .andRoute(DELETE("/roles/client-users/role-id/{roleId}/user-id/{userId}").and(accept(MediaType.APPLICATION_JSON)), handler::deleteClientUserRole)
+                .andRoute(DELETE("/roles/organizations/{organizationId}").and(accept(MediaType.APPLICATION_JSON)), handler::deleteMyRole)
 
-                .andRoute(POST("/roles/client-organization-users").and(accept(MediaType.APPLICATION_JSON)), handler::addClientOrganizationUserRole)
-                .andRoute(DELETE("/roles/client-organization-users/{id}").and(accept(MediaType.APPLICATION_JSON)), handler::deleteClientOrganizationUserRoleById)
-                .andRoute(GET("/roles/client-organization-users/client-id/{clientId}/organization-id/{organizationId}/user-ids/{userIds}").and(accept(MediaType.APPLICATION_JSON)), handler::getClientOrganziationUserWithRoles)
-                .andRoute(DELETE("/roles").and(accept(MediaType.APPLICATION_JSON)), handler::deleteMyRole);
+                .andRoute(POST("/roles/authzmanagerroles").and(accept(MediaType.APPLICATION_JSON)), handler::createAuthzManagerRole)
+                .andRoute(PUT("/roles/authzmanagerroles/name").and(accept(MediaType.APPLICATION_JSON)), handler::getAuthzManagerRoleIdForName)
+                .andRoute(POST("/roles/authzmanagerroles/users/organizations"), handler::assignOrganizationToAuthzManagerRoleWithUser)
+                .andRoute(POST("/roles/authzmanagerroles/names/users/organizations"), handler::setUserAsAuthzManagerRoleForOrganization)
+                .andRoute(DELETE("/roles/authzmanagerroles/users/organizations/{id}"), handler::deleteUserFromAuthzManagerRoleOrganization)
+                .andRoute(GET("/roles/authzmanagerroles/{authzManagerRoleId}/users/organizations/{organizationId}"), handler::getAuthzManagerRoleByOrgId)
+                .andRoute(PUT("/roles/authzmanagerroles/users/organizations/{organizationId}"), handler::areUsersSuperAdminInDefaultOrgId)
+                .andRoute(GET("/roles/authzmanagerroles/users/{userId}/organizations/{organizationId}"), handler::isSuperAdminInOrgId)
+                .andRoute(GET("/roles/authzmanagerroles/users/organizations"), handler::getSuperAdminOrganizations)
+                .andRoute(GET("/roles/authzmanagerroles/users/organizations/count"), handler::getSuperAdminOrganizationsCount)
+                .andRoute(GET("/roles/organizations/{organizationId}/count"), handler::getOrganizationWithRoleCount);
+
 
 
 

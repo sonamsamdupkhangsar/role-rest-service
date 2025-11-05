@@ -2,13 +2,11 @@ package me.sonam.role.handler;
 
 import me.sonam.role.handler.service.carrier.ClientOrganizationUserWithRole;
 import me.sonam.role.repo.entity.Role;
-import me.sonam.role.repo.entity.RoleOrganization;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.util.Pair;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -26,12 +24,15 @@ public class Handler {
     private static final Logger LOG = LoggerFactory.getLogger(Handler.class);
 
     @Autowired
-    private OrganizationRole organizationRole;
+    private RoleManager roleManager;
+
+    @Autowired
+    private AuthzMgrRole authzMgrRole;
 
     public Mono<ServerResponse> getRole(ServerRequest serverRequest) {
         LOG.info("get role");
 
-        return organizationRole.getRoleById(UUID.fromString(serverRequest.pathVariable("id")))
+        return roleManager.getRoleById(UUID.fromString(serverRequest.pathVariable("id")))
                 .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(s))
                 .onErrorResume(throwable -> {
                     LOG.error("get role by id failed, error: {}", throwable.getMessage());
@@ -40,31 +41,17 @@ public class Handler {
                 });
     }
 
-    public Mono<ServerResponse> getRolesByUserId(ServerRequest serverRequest) {
-        LOG.info("get roles by userId");
-        Pageable pageable = Util.getPageable(serverRequest);
-
-        return organizationRole.getRolesByUserId(UUID.fromString(serverRequest.pathVariable("userId")), pageable)
-                .flatMap(page -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(page))
-                .onErrorResume(throwable -> {
-                    LOG.error("get roles by owner-id failed, error: {}", throwable.getMessage());
-                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(Map.of("error", throwable.getMessage()));
-                });
-    }
-
-
     /**
      * This is for returning roles for a organizationId
      *
      * @param serverRequest
      * @return
      */
-    public Mono<ServerResponse> getOrganizationRoles(ServerRequest serverRequest) {
+    public Mono<ServerResponse> getRolesByOrganizationId(ServerRequest serverRequest) {
         LOG.info("get organization roles");
         Pageable pageable = Util.getPageable(serverRequest);
 
-        return organizationRole.getOrganizationRoles(
+        return roleManager.getRolesByOrganizationId(
                         UUID.fromString(serverRequest.pathVariable("organizationId")), pageable)
                 .flatMap(s -> {
                     LOG.info("get organizationRoles response  {}", s);
@@ -77,72 +64,13 @@ public class Handler {
                 });
     }
 
-    /**
-     * this is for handling request to add role to organization
-     * @param serverRequest
-     * @return
-     */
-    public Mono<ServerResponse> addRoleToOrganization(ServerRequest serverRequest) {
-        LOG.info("add role to organization");
-
-        return serverRequest.bodyToMono(RoleOrganization.class).
-                flatMap(roleOrganization -> organizationRole.addRoleToOrganization(roleOrganization))
-                .flatMap(s -> {
-                    LOG.info("add roleToOrganization response  {}", s);
-                    return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(s);
-                })
-                .onErrorResume(throwable -> {
-                    LOG.error("add role to organization failed, error: {}", throwable.getMessage());
-                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(Map.of("error", throwable.getMessage()));
-                });
-    }
-
-    public Mono<ServerResponse> deleteRoleOrganization(ServerRequest serverRequest) {
-        LOG.info("delete role from organization");
-
-        return organizationRole.deleteRoleOrganization(UUID.fromString(serverRequest.pathVariable("roleId")),
-                        UUID.fromString(serverRequest.pathVariable("organizationId")))
-                .flatMap(s -> {
-                    LOG.info("delete roleOrganization response  {}", s);
-                    return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(Map.of("message", s));
-                })
-                .onErrorResume(throwable -> {
-                    LOG.error("delete roleOrganization failed, error: {}", throwable.getMessage());
-                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(Map.of("error", throwable.getMessage()));
-                });
-    }
-
-    /**
-     * This is for returning roles owned by a userId
-     *
-     * @param serverRequest
-     * @return
-     */
-
-    public Mono<ServerResponse> getRolesForUser(ServerRequest serverRequest) {
-        LOG.info("get organization roles");
-        Pageable pageable = Util.getPageable(serverRequest);
-
-        return organizationRole.getUserAssociatedRoles(
-                        UUID.fromString(serverRequest.pathVariable("userId")), pageable)
-                .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(s))
-                .onErrorResume(throwable -> {
-                    LOG.error("get user roles call failed, error: {}", throwable.getMessage());
-                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(Map.of("error", throwable.getMessage()));
-                });
-    }
 
     public Mono<ServerResponse> createRole(ServerRequest serverRequest) {
         LOG.info("create role");
 
-        return serverRequest.bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
-                })
+        return serverRequest.bodyToMono(Role.class)
                 .switchIfEmpty(Mono.error(new RoleException("map is empty")))
-                .flatMap(map -> organizationRole.createRole(map))
+                .flatMap(role -> roleManager.createRole(role))
                 .flatMap(role -> {
                             LOG.info("returning created");
                             return ServerResponse.created(URI.create("/roles/" + role.getId()))
@@ -159,10 +87,11 @@ public class Handler {
     public Mono<ServerResponse> updateRole(ServerRequest serverRequest) {
         LOG.info("update role");
 
-        return organizationRole.updateRole(serverRequest.bodyToMono(Role.class))
+        return serverRequest.bodyToMono(Role.class)
+                .flatMap(role -> roleManager.updateRole(role))
                 .flatMap(role -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(role))
                 .onErrorResume(throwable -> {
-                    LOG.error("update role failed: {}", throwable.getMessage());
+                    LOG.error("role update failed: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
                             .bodyValue(Map.of("error", throwable.getMessage()));
                 });
@@ -171,119 +100,10 @@ public class Handler {
     public Mono<ServerResponse> deleteRole(ServerRequest serverRequest) {
         LOG.info("delete role");
 
-        return organizationRole.deleteRole(UUID.fromString(serverRequest.pathVariable("id")))
+        return roleManager.deleteRole(UUID.fromString(serverRequest.pathVariable("id")))
                 .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(Map.of("message", s)))
                 .onErrorResume(throwable -> {
                     LOG.error("delete role failed: {}", throwable.getMessage());
-                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(Map.of("error", throwable.getMessage()));
-                });
-    }
-
-    public Mono<ServerResponse> addClientUserRole(ServerRequest serverRequest) {
-        LOG.info("add role client user");
-
-        return serverRequest.bodyToMono(new ParameterizedTypeReference<Map<String, UUID>>(){})
-                .flatMap(map ->
-                        organizationRole.addClientUserRole(map.get("clientId"), map.get("roleId"), map.get("userId")))
-                .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(Map.of("message", "created new role client user row",
-                                "object", s)))
-                .onErrorResume(throwable -> {
-                    LOG.error("add role user failed: {}", throwable.getMessage());
-                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(Map.of("error", throwable.getMessage()));
-                });
-    }
-
-    public Mono<ServerResponse> updateClientUserRole(ServerRequest serverRequest) {
-        LOG.info("update role client user");
-
-        return serverRequest.bodyToMono(new ParameterizedTypeReference<Map<String, UUID>>() {})
-                .flatMap(map -> organizationRole.updateClientUserRole(map.get("id"), map.get("clientId"),
-                        map.get("roleId"), map.get("userId")))
-                .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(Map.of("message", s)))
-                .onErrorResume(throwable -> {
-                    LOG.error("update role user failed: {}", throwable.getMessage());
-                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(Map.of("error", throwable.getMessage()));
-                });
-    }
-
-    public Mono<ServerResponse> deleteClientUserRole(ServerRequest serverRequest) {
-        LOG.info("delete role");
-
-        return organizationRole.deleteClientUserRole(UUID.fromString(serverRequest.pathVariable("roleId")),
-                        UUID.fromString(serverRequest.pathVariable("userId")))
-                .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(Pair.of("message", s)))
-                .onErrorResume(throwable -> {
-                    LOG.error("delete role user failed: {}", throwable.getMessage());
-                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(Map.of("error", throwable.getMessage()));
-                });
-    }
-
-    /**
-     * get all RoleClientUsers by clientId
-     *
-     * @param serverRequest
-     * @return
-     */
-    public Mono<ServerResponse> getClientUserRolePage(ServerRequest serverRequest) {
-        LOG.info("get role users");
-
-        Pageable pageable = Util.getPageable(serverRequest);
-
-        UUID clientId = UUID.fromString(serverRequest.pathVariable("clientId"));
-
-        return organizationRole.getClientUserRolePage(clientId, pageable)
-                .flatMap(s -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(s))
-                .onErrorResume(throwable -> {
-                    LOG.error("get role user call failed, error: {}", throwable.getMessage());
-                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(Map.of("error", throwable.getMessage()));
-                });
-    }
-
-    /**
-     * get RoleClientUsers by clientId and userId
-     *
-     * @param serverRequest
-     * @return
-     */
-    public Mono<ServerResponse> getClientUserRoles(ServerRequest serverRequest) {
-        LOG.info("get role for User");
-
-        UUID clientId = UUID.fromString(serverRequest.pathVariable("clientId"));
-        UUID userId = UUID.fromString(serverRequest.pathVariable("userId"));
-
-        return organizationRole.getClientUserRoles(clientId, userId)
-                .collectList()
-                .flatMap(s -> {
-                    LOG.info("sending response back: {}", s);
-                    return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(s);
-                })
-                .onErrorResume(throwable -> {
-                    LOG.error("get role for user call failed, error: {}", throwable.getMessage());
-                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(Map.of("error", throwable.getMessage()));
-                });
-    }
-
-    public Mono<ServerResponse> getRoleClientUsersByClientAndUserId(ServerRequest serverRequest) {
-        LOG.info("get organizationId for roleId");
-
-        UUID clientId = UUID.fromString(serverRequest.pathVariable("clientId"));
-        UUID userId = UUID.fromString(serverRequest.pathVariable("userId"));
-
-        return organizationRole.getClientUserRoles(clientId, userId)
-                .collectList()
-                .flatMap(s -> {
-                    LOG.info("sending response back: {}", s);
-                    return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(s);
-                })
-                .onErrorResume(throwable -> {
-                    LOG.error("get role for user call failed, error: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
                             .bodyValue(Map.of("error", throwable.getMessage()));
                 });
@@ -294,14 +114,44 @@ public class Handler {
 
         UUID clientId = UUID.fromString(serverRequest.pathVariable("clientId"));
         UUID organizationId = UUID.fromString(serverRequest.pathVariable("organizationId"));
-        String userIds = serverRequest.pathVariable("userIds");
-        String[] userIdArray = userIds.split(",");
-        List<UUID> userIdList = new ArrayList<>();
-        for(int i = 0; i < userIdArray.length; i++) {
-            userIdList.add(UUID.fromString(userIdArray[i]));
-        }
 
-        return organizationRole.getClientOrganizationUserWithRoles(clientId, organizationId, userIdList)
+        return serverRequest.bodyToMono(String.class)
+                .switchIfEmpty(Mono.error(new RoleException("no userId csv found")))
+                .flatMap(userIdCsv -> {
+                    String[] userIdArray = userIdCsv.split(",");
+                    List<UUID> userIdList = new ArrayList<>();
+                    for(int i = 0; i < userIdArray.length; i++) {
+                        userIdList.add(UUID.fromString(userIdArray[i]));
+                    }
+                    LOG.info("userIdList {}", userIdList);
+                    return Mono.just(userIdList);
+                })
+                .flatMap(userIdList -> roleManager.getClientOrganizationUserWithRoles(clientId, organizationId, userIdList))
+                .flatMap(s -> {
+                    LOG.info("sending response back: {}", s);
+                    return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(s);
+                })
+                .onErrorResume(throwable -> {
+                    LOG.error("get role for user call failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    /**
+     * This is similar to {@link #getClientOrganziationUserWithRoles(ServerRequest)} method except just return a roleId.
+     * This will be called during authentication to verify user has a role organizationId, clientId and for userId tuple.
+     * @param serverRequest
+     * @return
+     */
+    public Mono<ServerResponse> getRoleIdForClientOrganziationUser(ServerRequest serverRequest) {
+        LOG.info("get user roles by clientId, organizationId and userIds");
+
+        UUID clientId = UUID.fromString(serverRequest.pathVariable("clientId"));
+        UUID organizationId = UUID.fromString(serverRequest.pathVariable("organizationId"));
+        UUID userId = UUID.fromString(serverRequest.pathVariable("userId"));
+
+        return roleManager.getRoleIdForClientOrganizationUser(clientId, organizationId, userId)
                 .flatMap(s -> {
                     LOG.info("sending response back: {}", s);
                     return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(s);
@@ -317,10 +167,11 @@ public class Handler {
         LOG.info("add userRoles By ClientIdOrganizationIdUserId");
 
         return serverRequest.bodyToMono(ClientOrganizationUserWithRole.class)
-                .flatMap(clientOrganizationUserWithRole -> organizationRole.addClientOrganizationUserRole(
+                .switchIfEmpty(Mono.error(new RoleException("no clientOrganizationUserWithRole payload found")))
+                .flatMap(clientOrganizationUserWithRole -> roleManager.addClientOrganizationUserRole(
                                 clientOrganizationUserWithRole.getClientId(),
                                 clientOrganizationUserWithRole.getOrganizationId(),
-                                clientOrganizationUserWithRole.getUser().getRole().getId(),
+                                clientOrganizationUserWithRole.getRole().getId(),
                                 clientOrganizationUserWithRole.getUser().getId()))
                 .flatMap(s -> {
                     LOG.info("sending response back: {}", s);
@@ -338,7 +189,7 @@ public class Handler {
 
         UUID id = UUID.fromString(serverRequest.pathVariable("id"));
 
-        return organizationRole.deleteClientOrganizationUserRoleById(id)
+        return roleManager.deleteClientOrganizationUserRoleById(id)
                 .flatMap(s -> {
                     LOG.info("deleted RoleClientOrganizationUser, sending response: {}", s);
                     return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(s);
@@ -356,15 +207,268 @@ public class Handler {
      * @return
      */
     public Mono<ServerResponse> deleteMyRole(ServerRequest serverRequest) {
-        LOG.info("deleted");
+        LOG.info("delete my roles for organizationId: {}", serverRequest.pathVariable("organizationId"));
+        UUID orgId = UUID.fromString(serverRequest.pathVariable("organizationId"));
 
-        return organizationRole.deleteMyRole()
+        return roleManager.deleteMyRole(orgId)
                 .flatMap(s -> {
                     LOG.info("delete my role success, sending response: {}", s);
                     return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(s);
                 })
                 .onErrorResume(throwable -> {
                     LOG.error("delete my role call failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+
+    public Mono<ServerResponse> getAuthzManagerRoleIdForName(ServerRequest serverRequest) {
+        LOG.info("get AuthzManagerRole id for name");
+
+        return serverRequest.bodyToMono(String.class)
+                .switchIfEmpty(Mono.error(new RoleException("authzManagerRole name is empty")))
+                .flatMap(authzManagerRoleName -> authzMgrRole.getAuthzManagerRoleId(authzManagerRoleName))
+                .flatMap(id -> {
+                            LOG.info("returning authzManagerRoleId {}", id);
+                            return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON)
+                                    .bodyValue(Map.of("message", id));
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("failed to get id for authzManagerRole name, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    public Mono<ServerResponse> createAuthzManagerRole(ServerRequest serverRequest) {
+        LOG.info("create AuthzManagerRole");
+
+        return serverRequest.bodyToMono(new ParameterizedTypeReference<Map<String, String>>() {
+                })
+                .switchIfEmpty(Mono.error(new RoleException("map is empty")))
+                .flatMap(map -> authzMgrRole.createAuthzManagerRole(map.get("name")))
+                .flatMap(role -> {
+                            LOG.info("returning created");
+                            return ServerResponse.created(URI.create("/authzmanagerroles/" + role.getId()))
+                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(role);
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("create authzManagerRole failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    /**
+     * This creates a user as with AuthzManagerRole user, For example it can create a user with SuperAdmin role for a organization
+     * @param serverRequest
+     * @return
+     */
+
+    public Mono<ServerResponse> assignOrganizationToAuthzManagerRoleWithUser(ServerRequest serverRequest) {
+        LOG.info("create AuthorizationRoleOrganization");
+
+        return serverRequest.bodyToMono(new ParameterizedTypeReference<Map<String, String>>() {
+                })
+                .switchIfEmpty(Mono.error(new RoleException("map is empty")))
+                .flatMap(map -> {
+                    LOG.info("converting input to UUIDs {}", map);
+                    UUID authzManagerRoleId = UUID.fromString(map.get("authzManagerRoleId"));
+                    UUID userId = UUID.fromString(map.get("userId"));
+                    UUID organizationId = UUID.fromString(map.get("organizationId"));
+
+                    return authzMgrRole.assignOrganizationToAuthzManagerRoleWithUser(authzManagerRoleId, organizationId, userId);
+                })
+                .flatMap(authzManagerRoleOrganization -> {
+                            LOG.info("returning assignOrganizationToAuthzManagerRoleWithUser");
+                            return ServerResponse.created(URI.create("/authzmanagerroles/users/organizations" + authzManagerRoleOrganization.getId()))
+                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(authzManagerRoleOrganization);
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("create assignOrganizationToAuthzManagerRoleWithUser failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    /**
+     * This method is similar to above method {{@link #assignOrganizationToAuthzManagerRoleWithUser(ServerRequest)}} except
+     * this can take the authzManagerRoleName as String and assign user with that role to a orgId
+     * @param serverRequest get user payload
+     * @return authzManagerRoleOrganization object
+     */
+    public Mono<ServerResponse> setUserAsAuthzManagerRoleForOrganization(ServerRequest serverRequest) {
+        LOG.info("handler for setting user as authzManagerRole for org");
+
+        return serverRequest.bodyToMono(new ParameterizedTypeReference<Map<String, String>>() {
+                })
+                .switchIfEmpty(Mono.error(new RoleException("map is empty")))
+                .flatMap(map -> {
+                    LOG.info("get payload from map {}", map);
+                    String authzManagerRoleName = map.get("authzManagerRoleName");
+                    UUID userId = UUID.fromString(map.get("userId"));
+                    UUID organizationId = UUID.fromString(map.get("organizationId"));
+
+                    return authzMgrRole.setUserAsAuthzManagerRoleNameForOrganization(authzManagerRoleName, organizationId, userId);
+                })
+                .flatMap(authzManagerRoleOrganization -> {
+                            LOG.info("user has been set as authzManagerRoleName for organization");
+                            return ServerResponse.created(URI.create("/authzmanagerroles/users/organizations" + authzManagerRoleOrganization.getId()))
+                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(authzManagerRoleOrganization);
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("failed to set user as authzManagerRoleName for orgId, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    public Mono<ServerResponse> deleteUserFromAuthzManagerRoleOrganization(ServerRequest serverRequest) {
+        LOG.info("delete user from AuthzManagerRoleOrganization using pathVariable id {}", serverRequest.pathVariable("id"));
+        UUID authzManagerRoleOrganizationId = UUID.fromString(serverRequest.pathVariable("id"));
+
+        return authzMgrRole.deleteUserFromAuthzManagerRoleOrganization(authzManagerRoleOrganizationId)
+                .flatMap(role -> {
+                            LOG.info("authzManagerRoleOrganization deleted");
+                            return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON)
+                                    .bodyValue(Map.of("message", "User removed from AuthzManagerRoleOrganization"));
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("deleteUserFromAuthzManagerRoleOrganization failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    public Mono<ServerResponse> getAuthzManagerRoleByOrgId(ServerRequest serverRequest) {
+        LOG.info("get AuthzManagerRoleUser by orgId pathVariable {}", serverRequest.pathVariable("organizationId"));
+        UUID organizationId = UUID.fromString(serverRequest.pathVariable("organizationId"));
+        UUID authzManagerRoleId = UUID.fromString(serverRequest.pathVariable("authzManagerRoleId"));
+
+        Pageable pageable = Util.getPageable(serverRequest);
+
+
+        return authzMgrRole.getUserIdByAuthzManagerRoleIdAndOrgId(authzManagerRoleId, organizationId, pageable)
+                .flatMap(uuidPage -> {
+                            LOG.info("authzManagerRoleOrganization deleted");
+                            return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON)
+                                    .bodyValue(uuidPage);
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("get AuthzManagerRole by orrgId failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    /**
+     * This is to check if the list of userIds in payload are superAdmin role in this organizationId
+     * @param serverRequest
+     * @return Pair of userId and superAdmin like <UserId, SuperAdmin> or <UserId, EMPTY>
+     */
+    public Mono<ServerResponse> areUsersSuperAdminInDefaultOrgId(ServerRequest serverRequest) {
+        LOG.info("areUsersSuperAdminInDefaultOrgId {}", serverRequest.pathVariable("organizationId"));
+        UUID organizationId = UUID.fromString(serverRequest.pathVariable("organizationId"));
+
+        return serverRequest.bodyToMono(new ParameterizedTypeReference<List<UUID>>() {
+                })
+                .switchIfEmpty(Mono.error(new RoleException("user id List is empty")))
+                .flatMap(list -> authzMgrRole.areUsersSuperAdminByOrgId(list, organizationId))
+                .flatMap(role -> {
+                            LOG.info("returning created");
+                            return ServerResponse.created(URI.create("/authzmanagerroles/users"))
+                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(role);
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("areUsersSuperAdminInDefaultOrgId failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    /**
+     * This method return a boolean if the userId has the role of "SuperAdmin" in organizationId
+     * @param serverRequest  request object
+     * @return boolean to indicate if is a SuperAdmin or not
+     */
+    public Mono<ServerResponse> isSuperAdminInOrgId(ServerRequest serverRequest) {
+        LOG.info("extract orgId and userId from serverRequest");
+        UUID organizationId = UUID.fromString(serverRequest.pathVariable("organizationId"));
+        UUID userId = UUID.fromString(serverRequest.pathVariable("userId"));
+
+        return authzMgrRole.isUserSuperAdminByOrgId(userId, organizationId)
+                .flatMap(value -> {
+                            LOG.info("is user superAdmin? : {}", value);
+                            return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON)
+                                    .bodyValue(Map.of("message", value));
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("isUserSuperAdminByOrgId call failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+
+
+    public Mono<ServerResponse> getSuperAdminOrganizations(ServerRequest serverRequest) {
+        LOG.info("get super admin organizations for logged-in user");
+        Pageable pageable = Util.getPageable(serverRequest);
+
+        return  authzMgrRole.getSuperAdminOrganizations(pageable)
+                .flatMap(uuidPage -> {
+                            LOG.info("get super admin organizations");
+                            return ServerResponse.ok()
+                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(uuidPage);
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("getSuperAdminOrganizations for logged-in user failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    public Mono<ServerResponse> getSuperAdminOrganizationsCount(ServerRequest serverRequest) {
+        LOG.info("get super admin organizations count for logged-in user");
+
+        return  authzMgrRole.getSuperAdminOrganizationsCount()
+                .flatMap(count -> {
+                            LOG.info("returning count of superadmin organizations count");
+                            return ServerResponse.ok()
+                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(Map.of("message", count));
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("getSuperAdminOrganizations count for logged-in user failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    public Mono<ServerResponse> getOrganizationWithRoleCount(ServerRequest serverRequest) {
+        LOG.info("get a count of user in this organization with role and superAdmin roles");
+
+        UUID orgId = UUID.fromString(serverRequest.pathVariable("organizationId"));
+
+        return  roleManager.getCountOfUsersWithUserClientOrganizationRoleByOrgId(orgId)
+                .flatMap(count -> {
+                            LOG.info("returning count of items with orgId with client-organization-user-roles");
+                            return ServerResponse.ok()
+                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(Map.of("message", count));
+                        }
+                )
+                .onErrorResume(throwable -> {
+                    LOG.error("getOrganizationWithRoleCount for orgId failed, error: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
                             .bodyValue(Map.of("error", throwable.getMessage()));
                 });

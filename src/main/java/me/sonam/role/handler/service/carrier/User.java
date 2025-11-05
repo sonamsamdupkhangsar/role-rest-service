@@ -8,7 +8,6 @@ import java.util.UUID;
 
 public class User {
     private UUID id;
-    private Role role;
     private String firstName;
     private String lastName;
     private String email;
@@ -17,17 +16,8 @@ public class User {
     public User() {
     }
 
-    public User(UUID id, Role role) {
+    public User(UUID id) {
         this.id = id;
-        this.role = role;
-    }
-
-    public Role getRole() {
-        return role;
-    }
-
-    public void setRole(Role role) {
-        this.role = role;
     }
 
     public UUID getId() {
@@ -42,7 +32,6 @@ public class User {
     public String toString() {
         return "User{" +
                 "id=" + id +
-                ", role=" + role +
                 ", firstName='" + firstName + '\'' +
                 ", lastName='" + lastName + '\'' +
                 ", email='" + email + '\'' +
@@ -87,11 +76,11 @@ public class User {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         User user = (User) o;
-        return Objects.equals(id, user.id) && Objects.equals(role, user.role);
+        return Objects.equals(id, user.id);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, role);
+        return Objects.hash(id);
     }
 }

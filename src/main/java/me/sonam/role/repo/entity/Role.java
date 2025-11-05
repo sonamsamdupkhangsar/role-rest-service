@@ -16,16 +16,13 @@ public class Role implements Persistable<UUID> {
     private UUID id;
     private String name;
 
-    private UUID userId;
+    private UUID organizationId;
+
     @Transient
     private boolean isNew;
 
-    // roleOrganization is set by service to return to consumer, no need to persist
-    @Transient
-    private RoleOrganization roleOrganization;
-
     public Role() {}
-    public Role(UUID id,  String name, UUID userId) {
+    public Role(UUID id,  String name, UUID organizationId) {
         if (id != null) {
             this.id = id;
             this.isNew = false;
@@ -35,7 +32,7 @@ public class Role implements Persistable<UUID> {
             this.isNew = true;
         }
         this.name = name;
-        this.userId = userId;
+        this.organizationId = organizationId;
     }
     public String getName() {
         return this.name;
@@ -50,6 +47,10 @@ public class Role implements Persistable<UUID> {
         return isNew;
     }
 
+    public void setNew(boolean value) {
+        this.isNew = value;
+    }
+
     public void setId(UUID id) {
         this.id = id;
     }
@@ -58,20 +59,12 @@ public class Role implements Persistable<UUID> {
         this.name = name;
     }
 
-    public UUID getUserId() {
-        return userId;
+    public UUID getOrganizationId() {
+        return organizationId;
     }
 
-    public void setUserId(UUID userId) {
-        this.userId = userId;
-    }
-
-    public RoleOrganization getRoleOrganization() {
-        return roleOrganization;
-    }
-
-    public void setRoleOrganization(RoleOrganization roleOrganization) {
-        this.roleOrganization = roleOrganization;
+    public void setOrganizationId(UUID organizationId) {
+        this.organizationId = organizationId;
     }
 
     @Override
@@ -79,9 +72,8 @@ public class Role implements Persistable<UUID> {
         return "Role{" +
                 "id=" + id +
                 ", name='" + name + '\'' +
-                ", userId=" + userId +
+                ", organizationId=" + organizationId +
                 ", isNew=" + isNew +
-                ", roleOrganization=" + roleOrganization +
                 '}';
     }
 
@@ -90,11 +82,11 @@ public class Role implements Persistable<UUID> {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Role role = (Role) o;
-        return Objects.equals(id, role.id) && Objects.equals(name, role.name) && Objects.equals(userId, role.userId);
+        return Objects.equals(id, role.id) && Objects.equals(name, role.name) && Objects.equals(organizationId, role.organizationId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, name, userId);
+        return Objects.hash(id, name, organizationId);
     }
 }
