@@ -1,12 +1,13 @@
 package me.sonam.role;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import me.sonam.role.handler.service.carrier.ClientOrganizationUserWithRole;
 import me.sonam.role.handler.service.carrier.User;
-import me.sonam.role.repo.*;
-import me.sonam.role.repo.entity.*;
-import org.checkerframework.checker.units.qual.C;
-import org.junit.jupiter.api.AfterEach;
+import me.sonam.role.repo.AuthzManagerRoleOrganizationRepository;
+import me.sonam.role.repo.ClientOrganizationUserRoleRepository;
+import me.sonam.role.repo.RoleRepository;
+import me.sonam.role.repo.entity.AuthzManagerRoleOrganization;
+import me.sonam.role.repo.entity.ClientOrganizationUserRole;
+import me.sonam.role.repo.entity.Role;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,22 +18,19 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
-import org.springframework.test.web.reactive.server.EntityExchangeResult;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
-import static java.util.stream.Collectors.toList;
-import static org.assertj.core.api.Assertions.fail;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -536,6 +534,42 @@ public class RoleServiceTest {
             LOG.info("got count: {}", map);
             assertThat(map.get("message")).isEqualTo(0);
         }).verifyComplete();
+    }
+
+    @Test
+    public void getRoleNameForClientOrganizationUser() {
+        final String authenticationId = "sonam";
+        Jwt jwt = jwt(authenticationId);
+        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+
+        UUID clientId = UUID.randomUUID();
+        UUID organizationId = UUID.randomUUID();
+        UUID roleId = UUID.randomUUID();
+        UUID userId1 = UUID.randomUUID();
+
+        Map<String, Object> map = new HashMap<>();
+        map.put("clientId", clientId);
+        map.put("organizationId", organizationId);
+        map.put("userId", userId1);
+        map.put("roleId", roleId);
+
+        var role = new Role(roleId, "admin role", organizationId);
+        role.setNew(true);
+
+        roleRepository.save(role).subscribe();
+
+        //e(UUID id, UUID roleId, UUID clientId, UUID organizationId, UUID userId) {
+        var clientOrganizationUserRole1 = new ClientOrganizationUserRole(null, roleId, clientId, organizationId, userId1);
+        clientOrganizationUserRoleRepository.save(clientOrganizationUserRole1).subscribe();
+
+        String roleName = webTestClient.mutateWith(mockJwt().jwt(jwt)).get()
+                .uri("/roles/clients/"+clientId+"/organizations/"+organizationId+"/users/"+userId1+"/roles/name")
+                .headers(addJwt(jwt)).exchange().expectStatus().isOk()
+                .expectBody(String.class)
+                .returnResult().getResponseBody();
+
+        assertThat(roleName).isEqualTo(role.getName());
+        assertThat(roleName).isEqualTo("admin role");
     }
 
     private Jwt jwt(String subjectName, UUID userId) {

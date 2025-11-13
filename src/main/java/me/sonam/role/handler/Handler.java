@@ -163,6 +163,26 @@ public class Handler {
                 });
     }
 
+    public Mono<ServerResponse> getRoleNameForClientOrganizationUser(ServerRequest serverRequest) {
+        LOG.info("get user roles by clientId, organizationId and userIds");
+
+        UUID clientId = UUID.fromString(serverRequest.pathVariable("clientId"));
+        UUID organizationId = UUID.fromString(serverRequest.pathVariable("organizationId"));
+        UUID userId = UUID.fromString(serverRequest.pathVariable("userId"));
+
+        return roleManager.getRoleIdForClientOrganizationUser(clientId, organizationId, userId)
+                .flatMap(uuid -> roleManager.getRoleById(uuid))
+                .flatMap(role -> {
+                    LOG.info("sending role name as response {}", role);
+                    return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(role.getName());
+                })
+                .onErrorResume(throwable -> {
+                    LOG.error("get role for user call failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
     public Mono<ServerResponse> addClientOrganizationUserRole(ServerRequest serverRequest) {
         LOG.info("add userRoles By ClientIdOrganizationIdUserId");
 

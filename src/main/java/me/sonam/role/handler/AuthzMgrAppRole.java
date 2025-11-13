@@ -29,11 +29,11 @@ public class AuthzMgrAppRole implements AuthzMgrRole{
     @Autowired
     private AuthzManagerRoleOrganizationRepository authzManagerRoleOrganizationRepository;
 
-    @PostConstruct
+   // @PostConstruct
     public void createSuperAdminRole() {
         final String superAdmin = "SuperAdmin";
 
-        authzManagerRoleRepository.deleteAll().subscribe();
+       // authzManagerRoleRepository.deleteAll().subscribe();
 
         authzManagerRoleRepository.countByName(superAdmin).flatMap(count -> {
             if (count < 1) {
