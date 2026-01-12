@@ -11,15 +11,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.EntityExchangeResult;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
@@ -44,7 +43,7 @@ public class AuthzManagerRoleServiceTest {
     @Autowired
     private WebTestClient webTestClient;
 
-    @MockBean
+    @MockitoBean
     private ReactiveJwtDecoder jwtDecoder;
 
     @Autowired
@@ -285,16 +284,16 @@ public class AuthzManagerRoleServiceTest {
                 })
                 .returnResult();
         LOG.info("result: {}", entityExchangeResult.getResponseBody());
-        entityExchangeResult.getResponseBody().forEach(uuid -> LOG.info("uuid: {}", uuid));
+        entityExchangeResult.getResponseBody().content().forEach(uuid -> LOG.info("uuid: {}", uuid));
 
         RestPage<UUID> restPage = entityExchangeResult.getResponseBody();
-        assertThat(restPage.getNumberOfElements()).isEqualTo(4);
-        assertThat(restPage.getTotalElements()).isEqualTo(4);
-        assertThat(userId1).isIn(restPage.getContent());
-        assertThat(userId2).isIn(restPage.getContent());
-        assertThat(userId3).isIn(restPage.getContent());
-        assertThat(userId4).isIn(restPage.getContent());
-        assertThat(UUID.randomUUID()).isNotIn(restPage.getContent()); //negative test with random userId
+        assertThat(restPage.numberOfElements()).isEqualTo(4);
+        assertThat(restPage.totalElements()).isEqualTo(4);
+        assertThat(userId1).isIn(restPage.content());
+        assertThat(userId2).isIn(restPage.content());
+        assertThat(userId3).isIn(restPage.content());
+        assertThat(userId4).isIn(restPage.content());
+        assertThat(UUID.randomUUID()).isNotIn(restPage.content()); //negative test with random userId
 
         entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt))
                 .get().uri("/roles/authzmanagerroles/"+authzManagerRoleId+"/users/organizations/"+organizationId +
@@ -304,12 +303,12 @@ public class AuthzManagerRoleServiceTest {
                 })
                 .returnResult();
         LOG.info("result: {}", entityExchangeResult.getResponseBody());
-        entityExchangeResult.getResponseBody().forEach(uuid -> LOG.info("uuid: {}", uuid));
+        entityExchangeResult.getResponseBody().content().forEach(uuid -> LOG.info("uuid: {}", uuid));
 
         restPage = entityExchangeResult.getResponseBody();
-        assertThat(restPage.getNumberOfElements()).isEqualTo(2);
-        assertThat(restPage.getTotalElements()).isEqualTo(4);
-        assertThat(UUID.randomUUID()).isNotIn(restPage.getContent());
+        assertThat(restPage.numberOfElements()).isEqualTo(2);
+        assertThat(restPage.totalElements()).isEqualTo(4);
+        assertThat(UUID.randomUUID()).isNotIn(restPage.content());
 
         entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt))
                 .get().uri("/roles/authzmanagerroles/"+authzManagerRoleId+"/users/organizations/"+organizationId +
@@ -319,12 +318,12 @@ public class AuthzManagerRoleServiceTest {
                 })
                 .returnResult();
         LOG.info("result: {}", entityExchangeResult.getResponseBody());
-        entityExchangeResult.getResponseBody().forEach(uuid -> LOG.info("uuid: {}", uuid));
+        entityExchangeResult.getResponseBody().content().forEach(uuid -> LOG.info("uuid: {}", uuid));
 
         restPage = entityExchangeResult.getResponseBody();
-        assertThat(restPage.getNumberOfElements()).isEqualTo(2);
-        assertThat(restPage.getTotalElements()).isEqualTo(4);
-        assertThat(UUID.randomUUID()).isNotIn(restPage.getContent());
+        assertThat(restPage.numberOfElements()).isEqualTo(2);
+        assertThat(restPage.totalElements()).isEqualTo(4);
+        assertThat(UUID.randomUUID()).isNotIn(restPage.content());
 
         entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt))
                 .get().uri("/roles/authzmanagerroles/"+authzManagerRoleId+"/users/organizations/"+organizationId +
@@ -334,12 +333,12 @@ public class AuthzManagerRoleServiceTest {
                 })
                 .returnResult();
         LOG.info("result: {}", entityExchangeResult.getResponseBody());
-        entityExchangeResult.getResponseBody().forEach(uuid -> LOG.info("uuid: {}", uuid));
+        entityExchangeResult.getResponseBody().content().forEach(uuid -> LOG.info("uuid: {}", uuid));
 
         restPage = entityExchangeResult.getResponseBody();
-        assertThat(restPage.getNumberOfElements()).isEqualTo(0);
-        assertThat(restPage.getTotalElements()).isEqualTo(4);
-        assertThat(UUID.randomUUID()).isNotIn(restPage.getContent());
+        assertThat(restPage.numberOfElements()).isEqualTo(0);
+        assertThat(restPage.totalElements()).isEqualTo(4);
+        assertThat(UUID.randomUUID()).isNotIn(restPage.content());
 
         entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt))
                 .get().uri("/roles/authzmanagerroles/"+authzManagerRoleId+"/users/organizations/"+organizationId +
@@ -349,12 +348,12 @@ public class AuthzManagerRoleServiceTest {
                 })
                 .returnResult();
         LOG.info("result: {}", entityExchangeResult.getResponseBody());
-        entityExchangeResult.getResponseBody().forEach(uuid -> LOG.info("uuid: {}", uuid));
+        entityExchangeResult.getResponseBody().content().forEach(uuid -> LOG.info("uuid: {}", uuid));
 
         restPage = entityExchangeResult.getResponseBody();
-        assertThat(restPage.getNumberOfElements()).isEqualTo(2);
-        assertThat(restPage.getTotalElements()).isEqualTo(4);
-        assertThat(UUID.randomUUID()).isNotIn(restPage.getContent());
+        assertThat(restPage.numberOfElements()).isEqualTo(2);
+        assertThat(restPage.totalElements()).isEqualTo(4);
+        assertThat(UUID.randomUUID()).isNotIn(restPage.content());
     }
 
     @Test
@@ -525,8 +524,8 @@ public class AuthzManagerRoleServiceTest {
                 .getResponseBody().single();
 
         StepVerifier.create(pageMono).assertNext(page -> {
-            LOG.info("got page of uuids {}", page.getContent());
-            List<UUID> list = page.getContent();
+            LOG.info("got page of uuids {}", page.content());
+            List<UUID> list = page.content();
 
             assertThat(list.size()).isEqualTo(3);
             assertThat(list.contains(organizationId1)).isTrue();
@@ -545,7 +544,7 @@ public class AuthzManagerRoleServiceTest {
                 .getResponseBody().single();
 
         StepVerifier.create(pageMono).assertNext(page -> {
-            List<UUID> list = page.getContent();
+            List<UUID> list = page.content();
 
             assertThat(list.size()).isEqualTo(1);
             assertThat(list.contains(organizationId1)).isTrue();
@@ -557,7 +556,7 @@ public class AuthzManagerRoleServiceTest {
                 .getResponseBody().single();
 
         StepVerifier.create(pageMono).assertNext(page -> {
-            List<UUID> list = page.getContent();
+            List<UUID> list = page.content();
 
             assertThat(list.size()).isEqualTo(1);
             assertThat(list.contains(organizationId2)).isTrue();
@@ -570,7 +569,7 @@ public class AuthzManagerRoleServiceTest {
                 .getResponseBody().single();
 
         StepVerifier.create(pageMono).assertNext(page -> {
-            List<UUID> list = page.getContent();
+            List<UUID> list = page.content();
 
             assertThat(list.size()).isEqualTo(1);
             assertThat(list.contains(organizationId3)).isTrue();
