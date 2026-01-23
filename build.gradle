@@ -23,12 +23,14 @@ dependencies {
     implementation'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
     implementation 'org.springframework.cloud:spring-cloud-starter-kubernetes-client-all'
     implementation'org.springframework.boot:spring-boot-starter-security'
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+    implementation("org.springframework.security:spring-security-oauth2-jose")
     testImplementation ('org.springframework.boot:spring-boot-starter-test') {
         exclude (group: 'com.vaadin.external.google', module: 'android-json')
     }
     implementation'io.r2dbc:r2dbc-postgresql:0.8.13.RELEASE'
     implementation 'org.postgresql:postgresql:42.7.7'
-    implementation'me.sonam:token-filter:1.0.6-SNAPSHOT'
+    implementation'me.sonam:token-filter:1.0.7-SNAPSHOT'
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.6'
     implementation'io.projectreactor:reactor-test'
     testImplementation 'io.r2dbc:r2dbc-h2:1.0.0.RELEASE'
