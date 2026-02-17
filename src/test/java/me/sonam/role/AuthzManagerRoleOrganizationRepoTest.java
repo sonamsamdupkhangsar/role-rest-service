@@ -8,9 +8,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import reactor.test.StepVerifier;
 
 import java.util.UUID;
@@ -25,6 +27,8 @@ public class AuthzManagerRoleOrganizationRepoTest {
 
     @Autowired
     private AuthzManagerRoleOrganizationRepository authzManagerRoleOrganizationRepository;
+    @MockitoBean
+    private ReactiveJwtDecoder jwtDecoder;
 
     @Test
     public void create() {

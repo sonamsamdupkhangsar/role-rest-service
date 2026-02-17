@@ -13,14 +13,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -46,7 +46,7 @@ public class RoleServiceTest {
     @Autowired
     private WebTestClient webTestClient;
 
-    @MockBean
+    @MockitoBean
     private ReactiveJwtDecoder jwtDecoder;
 
     @Autowired
@@ -210,11 +210,11 @@ public class RoleServiceTest {
 
         StepVerifier.create(pageMono).assertNext(page -> {
             LOG.info("assert roles with orgId: {}", page);
-            assertThat(page.getTotalElements()).isEqualTo(5);
-            assertThat(page.getTotalPages()).isEqualTo(1);
-            assertThat(page.getNumberOfElements()).isEqualTo(5);
+            assertThat(page.totalElements()).isEqualTo(5);
+            assertThat(page.totalPages()).isEqualTo(1);
+            assertThat(page.numberOfElements()).isEqualTo(5);
 
-            List<Role> list = page.getContent();
+            List<Role> list = page.content();
             LOG.info("list contains {}", list);
             assertThat(list.size()).isEqualTo(5);
             assertThat(list.contains(role1)).isTrue();
