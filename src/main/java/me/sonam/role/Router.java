@@ -42,7 +42,7 @@ public class Router {
                         .and(accept(MediaType.APPLICATION_JSON)), handler::getRoleNameForClientOrganizationUser)
                 .andRoute(DELETE("/roles/clients/organizations/users/roles/{id}").and(accept(MediaType.APPLICATION_JSON)), handler::deleteClientOrganizationUserRoleById)
 
-                .andRoute(DELETE("/roles/organizations/{organizationId}").and(accept(MediaType.APPLICATION_JSON)), handler::deleteMyRole)
+                .andRoute(DELETE("/roles/organizations/{organizationId}/users/{userId}").and(accept(MediaType.APPLICATION_JSON)), handler::deleteUserRoleData)
 
                 .andRoute(POST("/roles/authzmanagerroles").and(accept(MediaType.APPLICATION_JSON)), handler::createAuthzManagerRole)
                 .andRoute(PUT("/roles/authzmanagerroles/name").and(accept(MediaType.APPLICATION_JSON)), handler::getAuthzManagerRoleIdForName)

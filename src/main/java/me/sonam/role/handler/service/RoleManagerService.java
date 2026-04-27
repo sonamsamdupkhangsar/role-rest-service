@@ -144,53 +144,31 @@ public class RoleManagerService implements RoleManager {
      * @return response
      */
     @Override
-    public Mono<String> deleteMyRole(UUID orgId) {
+    public Mono<String> deleteUserRoleData(UUID orgId, UUID userId) {
         LOG.info("delete my role for orgId: {}", orgId);
+        LOG.info("delete role data for explicit userId: {}", userId);
 
-        return ReactiveSecurityContextHolder.getContext().flatMap(securityContext -> {
-            LOG.info("principal: {}", securityContext.getAuthentication().getPrincipal());
-            org.springframework.security.core.Authentication authentication = securityContext.getAuthentication();
+        return clientOrganizationUserRoleRepository.deleteByOrganizationIdAndUserId(orgId, userId)
+                .flatMap(aLong -> clientOrganizationUserRoleRepository.countByOrganizationId(orgId))
+                .flatMap(aLong -> {
+                    StringBuilder stringBuilder = new StringBuilder("clientOrganizationUserRole deleted with this orgId and userId");
 
-            LOG.info("authentication: {}", authentication);
-            LOG.info("authentication.principal: {}", authentication.getPrincipal());
-            Jwt jwt = (Jwt) authentication.getPrincipal();
-            String userIdString = jwt.getClaim("userId");
-            LOG.info("delete user data for userId: {}", userIdString);
-
-            UUID userId = UUID.fromString(userIdString);
-
-            return clientOrganizationUserRoleRepository.deleteByOrganizationIdAndUserId(orgId, userId)
-                    .flatMap(aLong -> clientOrganizationUserRoleRepository.countByOrganizationId(orgId))
-                    .flatMap(aLong -> {
-                        StringBuilder stringBuilder = new StringBuilder("clientOrganizationUserRole deleted with this orgId and userId");
-
-                        if (aLong > 0) {
-                            LOG.info(stringBuilder.toString());
-                            return Mono.just(stringBuilder);
-                        }
-                        else {
-                            stringBuilder.append(",deleting role");
-                            LOG.info(stringBuilder.toString());
-                            return roleRepository.deleteByOrganizationId(orgId).thenReturn(stringBuilder);
-                        }
-                    })
-                    .flatMap(message -> {
-                        message.append(", delete my role success for orgId: '").append(orgId)
-                                .append("' and userId: '").append(userId).append("'");
-                        return authzManagerRoleOrganizationRepository.deleteByOrganizationIdAndUserId(orgId, userId)
-                                .thenReturn(message.toString());
-                    });
-        });
-
-        /*
-        return roleRepository.findByOrganizationId(orgId)
-                .flatMap(role -> {
-                    LOG.info("found role: {}", role);
-                    return clientOrganizationUserRoleRepository.deleteByRoleId(role.getId()) //delete the role assigned to client-id, user, organization
-                            .then(roleRepository.deleteById(role.getId()));
-           }).collectList()
-                .then(authzManagerRoleOrganizationRepository.deleteByOrganizationId(orgId))//delete authzManagerRole assigned to org and user
-                .thenReturn("delete my role success for org id: " + orgId);*/
+                    if (aLong > 0) {
+                        LOG.info(stringBuilder.toString());
+                        return Mono.just(stringBuilder);
+                    }
+                    else {
+                        stringBuilder.append(",deleting role");
+                        LOG.info(stringBuilder.toString());
+                        return roleRepository.deleteByOrganizationId(orgId).thenReturn(stringBuilder);
+                    }
+                })
+                .flatMap(message -> {
+                    message.append(", delete my role success for orgId: '").append(orgId)
+                            .append("' and userId: '").append(userId).append("'");
+                    return authzManagerRoleOrganizationRepository.deleteByOrganizationIdAndUserId(orgId, userId)
+                            .thenReturn(message.toString());
+                });
     }
 
     @Override
@@ -212,5 +190,3 @@ public class RoleManagerService implements RoleManager {
         });
     }
 }
-
-
