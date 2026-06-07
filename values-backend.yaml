@@ -5,6 +5,8 @@
 replicaCount: 1
 
 image:
+  repository: ghcr.io/sonamsamdupkhangsar/role-rest-service
+  tag: multitenancy
   pullPolicy: Always
 
 
@@ -15,12 +17,25 @@ fullnameOverride: "role-rest-service"
 
 serviceAccount:
   # Specifies whether a service account should be created
-  create: false
+  create: true
   # Annotations to add to the service account
   annotations: {}
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
   name:
+
+rbac:
+  create: true
+  rules:
+    - apiGroups:
+        - ""
+      resources:
+        - services
+        - endpoints
+      verbs:
+        - get
+        - list
+        - watch
 
 podSecurityContext: {}
 # fsGroup: 2000
@@ -44,32 +59,14 @@ istio:
 
 ingress:
   enabled: false
-  ingressClass: nginx
-  annotations:
-    nginx.ingress.kubernetes.io/auth-url: http://noexist-rest-service-mychart.backend.svc.cluster.local:80/validate
-    # pass authId header returned from jwt-rest-service validation of jwt token
-    nginx.ingress.kubernetes.io/auth-response-headers: authId
-  hosts:
-    - host: role-rest-service.sonam.cloud
-      paths:
-        - path: /
-          pathType: Prefix
-  tls:
-    - secretName: sonam.cloud
-      hosts:
-        - "*.sonam.cloud"
 
-resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-   #limits:
-   #  cpu: 50m
-   #  memory: 256Mi
-   #requests:
-   #  cpu: 100m
-   #  memory: 128Mi
+resources:
+  requests:
+    cpu: 150m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 768Mi
 
 #nodeSelector:
 #  node.kubernetes.io/instance-type: s-1vcpu-2gb
@@ -80,18 +77,26 @@ affinity: {}
 
 postgres:
   port: "5432"
-  service: role-minimal-cluster
-  secretfile: sonam.role-minimal-cluster.credentials.postgresql.acid.zalan.do
+  service: role-db-rw
+  secretfile: role-db-app
   dbname: role
 
 
 envs:
+  - name: JAVA_TOOL_OPTIONS
+    value: "-XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=25"
   - name: DB_SSLMODE
-    value: REQUIRE
+    value: disable
+  - name: SPRING_PROFILES_ACTIVE
+    value: kubernetes
   - name: ISSUER_URI
-    value: https://authorization.sonam.cloud/issuer
+    value: https://platform.openissuer.com/issuer
+  - name: JWT_SET_URI
+    value: https://platform.openissuer.com/issuer/oauth2/jwks
   - name: OAUTH_AUDIENCES
     value: oauth-client,nextjs-client
+  - name: NEW_RELIC_ENABLED
+    value: false
 
 health:
   liveness:

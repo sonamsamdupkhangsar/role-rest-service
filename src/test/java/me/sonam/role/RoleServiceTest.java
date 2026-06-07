@@ -415,7 +415,7 @@ public class RoleServiceTest {
         }).verifyComplete();
 
         Mono<String> stringMono = webTestClient.mutateWith(mockJwt().jwt(jwt)).delete()
-                .uri("/roles/organizations/" +organizationId)
+                .uri("/roles/organizations/" + organizationId + "/users/" + userId)
                 .headers(addJwt(jwt)).exchange().returnResult(String.class).getResponseBody().single();
 
         StepVerifier.create(stringMono).assertNext(string -> {
@@ -471,7 +471,7 @@ public class RoleServiceTest {
         }).verifyComplete();
 
         Mono<String> stringMono = webTestClient.mutateWith(mockJwt().jwt(jwt)).delete()
-                .uri("/roles/organizations/" +organizationId)
+                .uri("/roles/organizations/" + organizationId + "/users/" + userId)
                 .headers(addJwt(jwt)).exchange().returnResult(String.class).getResponseBody().single();
 
         StepVerifier.create(stringMono).assertNext(string -> {
@@ -588,4 +588,3 @@ public class RoleServiceTest {
 
 
 }
-

@@ -21,6 +21,6 @@ public interface RoleManager {
     Mono<UUID> getRoleIdForClientOrganizationUser(UUID clientId, UUID orgId, UUID userId);
     Mono<ClientOrganizationUserRole> addClientOrganizationUserRole(UUID clientId, UUID orgId, UUID roleId, UUID userId);
     Mono<String> deleteClientOrganizationUserRoleById(UUID id);
-    Mono<String> deleteMyRole(UUID orgId);
+    Mono<String> deleteUserRoleData(UUID orgId, UUID userId);
     Mono<Long> getCountOfUsersWithUserClientOrganizationRoleByOrgId(UUID orgId);
 }

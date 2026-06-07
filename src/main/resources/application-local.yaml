@@ -19,8 +19,8 @@ eureka:
       defaultZone: http://${EUREKA_USER}:${EUREKA_PASSWORD}@${EUREKA_HOST}/eureka
 
 
-ISSUER_ADDRESS: http://api-gateway:9001
+ISSUER_ADDRESS: http://platform.openissuer.test:9001
 
-ISSUER_URI: ${ISSUER_ADDRESS}/issuer
+ISSUER_URI: ${ISSUER_ADDRESS}
 OAUTH_AUDIENCES: oauth-client
-JWT_SET_URI: ${ISSUER_ADDRESS}/issuer/.well-known/jwks.json
+JWT_SET_URI: ${ISSUER_ADDRESS}/oauth2/jwks

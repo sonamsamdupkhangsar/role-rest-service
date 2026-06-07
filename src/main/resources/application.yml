@@ -30,10 +30,13 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${ISSUER_URI}
+          jwk-set-uri: ${JWT_SET_URI}
 
 permitpath:
   - path: /roles/api/health/*
   - path: /actuator/*
+
+openissuer:
+  trusted-issuer-host-suffixes: ${TRUSTED_ISSUER_HOST_SUFFIXES:openissuer.test,openissuer.com}
 
 tokenExpireSeconds: 180
