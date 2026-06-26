@@ -88,7 +88,7 @@ envs:
   - name: DB_SSLMODE
     value: disable
   - name: SPRING_PROFILES_ACTIVE
-    value: kubernetes
+    value: kubernetes,non-eureka
   - name: ISSUER_URI
     value: https://platform.openissuer.com/issuer
   - name: JWT_SET_URI

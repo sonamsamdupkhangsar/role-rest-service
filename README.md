@@ -2,13 +2,13 @@
 This role service will save user roles for a organization.
 
 ## Run locally using profile
-Use the following to run local profile which will pick up properties defined in the `application-local.yml` :
+Use the following to run the Eureka profile, which picks up properties defined in `application-eureka.yaml`:
 
 ```
-./gradlew bootRun --args="--spring.profiles.active=local"
+./gradlew bootRun --args="--spring.profiles.active=eureka"
 ```
 
-For intellij set `spring.profiles.active=local` in environment variables in Run.
+For IntelliJ, set `spring.profiles.active=eureka` in environment variables in Run.
 
 ## Build Docker image
 Build docker image using included Dockerfile.
