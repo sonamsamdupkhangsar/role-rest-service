@@ -5,7 +5,7 @@ This role service will save user roles for a organization.
 Use the following to run the Eureka profile, which picks up properties defined in `application-eureka.yaml`:
 
 ```
-./gradlew bootRun --args="--spring.profiles.active=eureka"
+SPRING_PROFILES_ACTIVE=eureka ./gradlew bootRun
 ```
 
 For IntelliJ, set `spring.profiles.active=eureka` in environment variables in Run.
