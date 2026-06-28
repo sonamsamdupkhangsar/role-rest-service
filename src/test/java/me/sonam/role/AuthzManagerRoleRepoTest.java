@@ -29,20 +29,20 @@ public class AuthzManagerRoleRepoTest {
 
     @Test
     public void create() {
-        var authzManagerRole1 = new AuthzManagerRole(null, "SuperAdmin");
+        var authzManagerRole1 = new AuthzManagerRole(null, "OrgAdmin");
 
         authzManagerRoleRepository.save(authzManagerRole1).subscribe();
-        var authzManagerRole2 = new AuthzManagerRole(null, "SuperAdmin2");
+        var authzManagerRole2 = new AuthzManagerRole(null, "OrgAdmin2");
         authzManagerRoleRepository.save(authzManagerRole2).subscribe();
 
-        StepVerifier.create(authzManagerRoleRepository.findByName("SuperAdmin")).assertNext(authzManagerRole -> {
+        StepVerifier.create(authzManagerRoleRepository.findByName("OrgAdmin")).assertNext(authzManagerRole -> {
             assertThat(authzManagerRole1.getId()).isNotNull();
-            assertThat(authzManagerRole1.getName()).isEqualTo("SuperAdmin");
+            assertThat(authzManagerRole1.getName()).isEqualTo("OrgAdmin");
         }).verifyComplete();
 
-        StepVerifier.create(authzManagerRoleRepository.findByName("SuperAdmin")).expectNextCount(1).verifyComplete();
+        StepVerifier.create(authzManagerRoleRepository.findByName("OrgAdmin")).expectNextCount(1).verifyComplete();
 
-        StepVerifier.create(authzManagerRoleRepository.existsByName("SuperAdmin")).assertNext(aBoolean ->
+        StepVerifier.create(authzManagerRoleRepository.existsByName("OrgAdmin")).assertNext(aBoolean ->
                 assertThat(aBoolean).isTrue()).verifyComplete();
     }
 

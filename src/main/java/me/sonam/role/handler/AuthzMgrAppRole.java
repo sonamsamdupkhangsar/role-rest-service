@@ -1,10 +1,10 @@
 package me.sonam.role.handler;
 
 import jakarta.annotation.PostConstruct;
-import me.sonam.role.repo.AuthzManagerRoleOrganizationRepository;
+import me.sonam.role.repo.AuthzManagerRoleAssignmentRepository;
 import me.sonam.role.repo.AuthzManagerRoleRepository;
 import me.sonam.role.repo.entity.AuthzManagerRole;
-import me.sonam.role.repo.entity.AuthzManagerRoleOrganization;
+import me.sonam.role.repo.entity.AuthzManagerRoleAssignment;
 import me.sonam.role.rest.RestPage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,39 +18,33 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
-public class AuthzMgrAppRole implements AuthzMgrRole{
+public class AuthzMgrAppRole implements AuthzMgrRole {
     private static final Logger LOG = LoggerFactory.getLogger(AuthzMgrAppRole.class);
+    private static final String ORG_ADMIN = "OrgAdmin";
+    private static final String SUBDOMAIN_ADMIN = "SubdomainAdmin";
 
     @Autowired
     private AuthzManagerRoleRepository authzManagerRoleRepository;
+
     @Autowired
-    private AuthzManagerRoleOrganizationRepository authzManagerRoleOrganizationRepository;
+    private AuthzManagerRoleAssignmentRepository authzManagerRoleAssignmentRepository;
 
     @PostConstruct
-    public void createSuperAdminRole() {
-        final String superAdmin = "SuperAdmin";
-
-       // authzManagerRoleRepository.deleteAll().subscribe();
-
-        authzManagerRoleRepository.countByName(superAdmin).flatMap(count -> {
-            if (count < 1) {
-                LOG.info("creating {} role", superAdmin);
-                return authzManagerRoleRepository.save(new AuthzManagerRole(null, "SuperAdmin"))
-                        .thenReturn("saved");
-            } else {
-                LOG.info("{} role already exists", superAdmin);
-                return Mono.just("superAdmin role already exists");
-            }
-        }).subscribe();
+    public void createAdminRoles() {
+        createRoleIfMissing(ORG_ADMIN).subscribe();
+        createRoleIfMissing(SUBDOMAIN_ADMIN).subscribe();
     }
 
     @Override
     public Mono<UUID> getAuthzManagerRoleId(String name) {
         LOG.info("get authzManagerRoleId for roleName {}", name);
-
         return authzManagerRoleRepository.findByName(name).map(AuthzManagerRole::getId);
     }
 
@@ -58,197 +52,181 @@ public class AuthzMgrAppRole implements AuthzMgrRole{
     public Mono<AuthzManagerRole> createAuthzManagerRole(String name) {
         LOG.info("Create new AuthzManagerRole with name {}", name);
         return authzManagerRoleRepository.existsByName(name).filter(aBoolean -> {
-            if (aBoolean) {
-                LOG.error("authzManagerRole with name {} already exists", name);
-            }
-            return !aBoolean;
-        })
-                .flatMap(aBoolean -> Mono.just(new AuthzManagerRole(null, name)))
-                .flatMap(authzManagerRole ->
-                        authzManagerRoleRepository.save(authzManagerRole).thenReturn(authzManagerRole));
-    }
-
-    /**
-     * This is called to transfer the ownership from a user to another user associated to a organization
-     * The authzMangaerRoleId is assigned to a AuthzManagerRoleOrganization,
-     * this will delete the auzthManagerRoleUser with authzManagerRoleId and userId
-     * @param authzManagerRoleId
-     * @param organizationId
-     * @param userId
-     * @return
-     */
-    @Override
-    public Mono<AuthzManagerRoleOrganization> assignOrganizationToAuthzManagerRoleWithUser(
-            UUID authzManagerRoleId, UUID organizationId, UUID userId) {
-        LOG.info("assigning organization role");
-        return authzManagerRoleOrganizationRepository.existsByAuthzManagerRoleIdAndOrganizationIdAndUserId(
-                authzManagerRoleId, organizationId, userId)
-                .flatMap(aBoolean -> {
-                    if(!aBoolean) {
-                    LOG.info("create authzRoleManagerUser for authzManagerRoleId {}, userId {}", authzManagerRoleId, userId);
-                    var authzManagerRoleOrganization = new AuthzManagerRoleOrganization
-                            (null, authzManagerRoleId, organizationId, userId);
-                    return authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization)
-                                            .thenReturn(authzManagerRoleOrganization);
+                    if (aBoolean) {
+                        LOG.error("authzManagerRole with name {} already exists", name);
                     }
-                else {
-                    LOG.warn("authzManagerRoleUser with userId already exists");
-                    return authzManagerRoleOrganizationRepository.findByAuthzManagerRoleIdAndOrganizationIdAndUserId(
-                            authzManagerRoleId, organizationId, userId).single();
-                }
-        });
-    }
-
-    @Override
-    public Mono<AuthzManagerRoleOrganization> setUserAsAuthzManagerRoleNameForOrganization(String authzManagerRoleName, UUID organizationId, UUID userId) {
-        LOG.info("set user.id {} as authzManagerRoleName: {} in organization: {}", authzManagerRoleName, organizationId, userId);
-        return authzManagerRoleRepository.findByName(authzManagerRoleName).switchIfEmpty(Mono.error(new RoleException("No authzManagerRole with name "+authzManagerRoleName)))
-                .flatMap(authzManagerRole -> authzManagerRoleOrganizationRepository.existsByAuthzManagerRoleIdAndOrganizationIdAndUserId(
-                        authzManagerRole.getId(), organizationId, userId).zipWith(Mono.just(authzManagerRole)))
-                .flatMap(objects -> {
-                    if(!objects.getT1()) {
-                        LOG.info("create authzRoleManagerUser for authzManagerRoleId {}, userId {}", objects.getT2().getId(), userId);
-                        var authzManagerRoleOrganization = new AuthzManagerRoleOrganization
-                                (null, objects.getT2().getId(), organizationId, userId);
-                        return authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization)
-                                .thenReturn(authzManagerRoleOrganization);
-                    }
-                    else {
-                        LOG.warn("authzManagerRoleUser with userId already exists");
-                        return authzManagerRoleOrganizationRepository.findByAuthzManagerRoleIdAndOrganizationIdAndUserId(
-                                objects.getT2().getId(), organizationId, userId).single();
-                    }
-                });
-    }
-
-    /**
-     * This is called to delete user from authzManagerRoleOrganization
-     * @return
-     */
-    @Override
-    public Mono<String> deleteUserFromAuthzManagerRoleOrganization(UUID authzManagerRoleOrganizationId) {
-        LOG.info("delete authzManagerRoleOrganization by id {}", authzManagerRoleOrganizationId);
-
-        return authzManagerRoleOrganizationRepository.deleteById(authzManagerRoleOrganizationId)
-                .thenReturn("authzManagerRoleOrganizationId deleted");
-    }
-
-    /**
-     * Only `SuperAdmin` authzManagerRoleId currently supported but allows for flexibility by supporting it as param
-     * @param authzManagerRoleId AuthzManagerRole.id
-     * @param organizationId Organization.id
-     * @param pageable Page of request
-     * @return return a flux of AuthzManagerRoleOrganization
-     */
-    @Override
-    public Mono<Page<UUID>> getUserIdByAuthzManagerRoleIdAndOrgId(UUID authzManagerRoleId, UUID organizationId, Pageable pageable) {
-        LOG.info("get all users that have SuperAdmin role");
-
-        return authzManagerRoleOrganizationRepository.findByAuthzManagerRoleIdAndOrganizationId(authzManagerRoleId, organizationId, pageable)
-                .collectList().doOnNext(list -> LOG.info("authzManagerRoleOrganization by authzManagerRoleId {}," +
-                        "organizationId: {}", authzManagerRoleId, organizationId))
-                .flatMap(list -> {
-                    List<UUID> userIds = list.stream().map(AuthzManagerRoleOrganization::getUserId).toList();
-                    return Mono.just(userIds);
+                    return !aBoolean;
                 })
-                .zipWith(authzManagerRoleOrganizationRepository.countByAuthzManagerRoleIdAndOrganizationId(authzManagerRoleId, organizationId))
+                .flatMap(aBoolean -> authzManagerRoleRepository.save(new AuthzManagerRole(null, name)));
+    }
+
+    @Override
+    public Mono<AuthzManagerRoleAssignment> assignOrganizationToAuthzManagerRoleWithUser(
+            UUID authzManagerRoleId, UUID organizationId, UUID userId) {
+        return assignScope(authzManagerRoleId, userId, AuthzManagerRoleAssignment.ORGANIZATION, organizationId);
+    }
+
+    @Override
+    public Mono<AuthzManagerRoleAssignment> assignSubdomainToAuthzManagerRoleWithUser(
+            UUID authzManagerRoleId, UUID subdomainId, UUID userId) {
+        return assignScope(authzManagerRoleId, userId, AuthzManagerRoleAssignment.SUBDOMAIN, subdomainId);
+    }
+
+    @Override
+    public Mono<String> deleteUserFromAuthzManagerRoleAssignment(UUID authzManagerRoleAssignmentId) {
+        LOG.info("delete authzManagerRoleAssignment by id {}", authzManagerRoleAssignmentId);
+        return authzManagerRoleAssignmentRepository.deleteById(authzManagerRoleAssignmentId)
+                .thenReturn("authzManagerRoleAssignmentId deleted");
+    }
+
+    @Override
+    public Mono<Page<UUID>> getUserIdByAuthzManagerRoleIdAndOrgId(UUID authzManagerRoleId, UUID organizationId,
+                                                                   Pageable pageable) {
+        LOG.info("get all users that have authz manager role {} in organization {}", authzManagerRoleId, organizationId);
+        return authzManagerRoleAssignmentRepository.findByAuthzManagerRoleIdAndScopeTypeAndScopeId(
+                        authzManagerRoleId, AuthzManagerRoleAssignment.ORGANIZATION, organizationId, pageable)
+                .map(AuthzManagerRoleAssignment::getUserId)
+                .collectList()
+                .zipWith(authzManagerRoleAssignmentRepository.countByAuthzManagerRoleIdAndScopeTypeAndScopeId(
+                        authzManagerRoleId, AuthzManagerRoleAssignment.ORGANIZATION, organizationId))
                 .map(objects -> new PageImpl<>(objects.getT1(), pageable, objects.getT2()));
     }
 
     @Override
-    public Mono<Map<UUID, UUID>> areUsersSuperAdminByOrgId(List<UUID> userIdsList, UUID organizationId) {
-        LOG.info("return a map of userId and SuperAdmin if they are superAdmin in the userIdList: {},\n orgId {}", userIdsList, organizationId);
+    public Mono<Map<UUID, UUID>> areUsersOrgAdminByOrgId(List<UUID> userIdsList, UUID organizationId) {
+        LOG.info("return a map of userId and OrgAdmin assignment id for orgId {}", organizationId);
+        return roleId(ORG_ADMIN)
+                .flatMap(roleId -> authzManagerRoleAssignmentRepository
+                        .findByUserIdInAndAuthzManagerRoleIdAndScopeTypeAndScopeId(userIdsList, roleId,
+                                AuthzManagerRoleAssignment.ORGANIZATION, organizationId)
+                        .collectList())
+                .map(assignments -> assignmentMap(userIdsList, assignments));
+    }
 
-        return authzManagerRoleRepository.findByName("SuperAdmin")
-                .flatMap(authzManagerRole -> Mono.just(authzManagerRole.getId()))
-                .flatMap(uuid -> authzManagerRoleOrganizationRepository.
-                        findByUserIdInAndAuthzManagerRoleIdAndOrganizationId(userIdsList, uuid, organizationId).collectList())
-                .flatMap(list -> {
-                    LOG.info("list of userIds with AuthzManagerRoleId and orgId {}", list);
-                    Map<UUID, UUID> map = new HashMap<>();
-                    userIdsList.forEach(uuid -> {
-                        if (!list.contains(uuid)) {
-                            map.put(uuid, null);
-                        }
-                    });
-                    LOG.info("found list of UserIds in organization");
-                    list.forEach(authzManagerRoleOrganization -> {
-                        map.put(authzManagerRoleOrganization.getUserId(), authzManagerRoleOrganization.getId());
-                    });
-                    return Mono.just(map);
+    @Override
+    public Mono<Page<UUID>> getOrgAdminOrganizations(Pageable pageable) {
+        LOG.info("get OrgAdmin organization ids for logged-in user");
+        return currentUserId().flatMap(userId -> roleId(ORG_ADMIN)
+                .flatMap(roleId -> scopeIdsForUser(userId, roleId, AuthzManagerRoleAssignment.ORGANIZATION, pageable)));
+    }
+
+    @Override
+    public Mono<Integer> getOrgAdminOrganizationsCount() {
+        LOG.info("get OrgAdmin organization ids count for logged-in user");
+        return currentUserId().flatMap(userId -> roleId(ORG_ADMIN)
+                .flatMap(roleId -> authzManagerRoleAssignmentRepository
+                        .countByUserIdAndAuthzManagerRoleIdAndScopeType(
+                                userId, roleId, AuthzManagerRoleAssignment.ORGANIZATION)));
+    }
+
+    @Override
+    public Mono<Page<UUID>> getSubdomainAdminSubdomains(Pageable pageable) {
+        LOG.info("get SubdomainAdmin subdomain ids for logged-in user");
+        return currentUserId().flatMap(userId -> roleId(SUBDOMAIN_ADMIN)
+                .flatMap(roleId -> scopeIdsForUser(userId, roleId, AuthzManagerRoleAssignment.SUBDOMAIN, pageable)));
+    }
+
+    @Override
+    public Mono<Integer> getSubdomainAdminSubdomainsCount() {
+        LOG.info("get SubdomainAdmin subdomain ids count for logged-in user");
+        return currentUserId().flatMap(userId -> roleId(SUBDOMAIN_ADMIN)
+                .flatMap(roleId -> authzManagerRoleAssignmentRepository
+                        .countByUserIdAndAuthzManagerRoleIdAndScopeType(
+                                userId, roleId, AuthzManagerRoleAssignment.SUBDOMAIN)));
+    }
+
+    @Override
+    public Mono<Boolean> isUserOrgAdminByOrgId(UUID userId, UUID organizationId) {
+        LOG.info("check if userId {} is OrgAdmin in organizationId {}", userId, organizationId);
+        return roleId(ORG_ADMIN)
+                .flatMap(roleId -> authzManagerRoleAssignmentRepository
+                        .existsByAuthzManagerRoleIdAndUserIdAndScopeTypeAndScopeId(roleId, userId,
+                                AuthzManagerRoleAssignment.ORGANIZATION, organizationId));
+    }
+
+    @Override
+    public Mono<Boolean> isUserSubdomainAdminBySubdomainId(UUID userId, UUID subdomainId) {
+        LOG.info("check if userId {} is SubdomainAdmin in subdomainId {}", userId, subdomainId);
+        return roleId(SUBDOMAIN_ADMIN)
+                .flatMap(roleId -> authzManagerRoleAssignmentRepository
+                        .existsByAuthzManagerRoleIdAndUserIdAndScopeTypeAndScopeId(roleId, userId,
+                                AuthzManagerRoleAssignment.SUBDOMAIN, subdomainId));
+    }
+
+    @Override
+    public Mono<AuthzManagerRoleAssignment> setUserAsAuthzManagerRoleNameForOrganization(
+            String authzManagerRoleName, UUID organizationId, UUID userId) {
+        LOG.info("set user.id {} as authzManagerRoleName {} in organization {}", userId, authzManagerRoleName,
+                organizationId);
+        return roleId(authzManagerRoleName)
+                .flatMap(roleId -> assignScope(roleId, userId, AuthzManagerRoleAssignment.ORGANIZATION, organizationId));
+    }
+
+    @Override
+    public Mono<AuthzManagerRoleAssignment> setUserAsAuthzManagerRoleNameForSubdomain(
+            String authzManagerRoleName, UUID subdomainId, UUID userId) {
+        LOG.info("set user.id {} as authzManagerRoleName {} in subdomain {}", userId, authzManagerRoleName, subdomainId);
+        return roleId(authzManagerRoleName)
+                .flatMap(roleId -> assignScope(roleId, userId, AuthzManagerRoleAssignment.SUBDOMAIN, subdomainId));
+    }
+
+    private Mono<AuthzManagerRole> createRoleIfMissing(String roleName) {
+        return authzManagerRoleRepository.countByName(roleName).flatMap(count -> {
+            if (count < 1) {
+                LOG.info("creating {} role", roleName);
+                return authzManagerRoleRepository.save(new AuthzManagerRole(null, roleName));
+            }
+            LOG.info("{} role already exists", roleName);
+            return authzManagerRoleRepository.findByName(roleName);
+        });
+    }
+
+    private Mono<UUID> roleId(String roleName) {
+        return authzManagerRoleRepository.findByName(roleName)
+                .switchIfEmpty(Mono.error(new RoleException("No authzManagerRole with name " + roleName)))
+                .map(AuthzManagerRole::getId);
+    }
+
+    private Mono<AuthzManagerRoleAssignment> assignScope(UUID roleId, UUID userId, String scopeType, UUID scopeId) {
+        return authzManagerRoleAssignmentRepository.existsByAuthzManagerRoleIdAndUserIdAndScopeTypeAndScopeId(
+                        roleId, userId, scopeType, scopeId)
+                .flatMap(exists -> {
+                    if (!exists) {
+                        var assignment = new AuthzManagerRoleAssignment(null, roleId, userId, scopeType, scopeId);
+                        return authzManagerRoleAssignmentRepository.save(assignment).thenReturn(assignment);
+                    }
+                    return authzManagerRoleAssignmentRepository
+                            .findByAuthzManagerRoleIdAndUserIdAndScopeTypeAndScopeId(roleId, userId, scopeType, scopeId)
+                            .single();
                 });
     }
 
-    @Override
-    public Mono<Page<UUID>> getSuperAdminOrganizations(Pageable pageable) {
-        LOG.info("get super admin organization ids for logged-in user with jwt for pageNumber: {} and pageSize: {}", pageable.getPageNumber(), pageable.getPageSize());
-
-        return ReactiveSecurityContextHolder.getContext().flatMap(securityContext -> {
-            LOG.info("principal: {}", securityContext.getAuthentication().getPrincipal());
-            Authentication authentication = securityContext.getAuthentication();
-            Jwt jwt = (Jwt) authentication.getPrincipal();
-
-            String userIdString = jwt.getClaim("userId");
-            LOG.info("userIdString: {}", userIdString);
-
-            UUID userId = UUID.fromString(userIdString);
-            LOG.info("userId: {}", userId);
-
-            return authzManagerRoleRepository.findByName("SuperAdmin")
-                    .flatMap(authzManagerRole -> Mono.just(authzManagerRole.getId()))
-                    .flatMap(authzManagerRoleId -> {
-                            LOG.info("authzManagerRole {}", authzManagerRoleId);
-                      return authzManagerRoleOrganizationRepository.findByUserIdAndAuthzManagerRoleId(userId,
-                              authzManagerRoleId, pageable).collectList().zipWith(Mono.just(authzManagerRoleId));
-                    })
-                    .flatMap(objects -> authzManagerRoleOrganizationRepository.countByUserIdAndAuthzManagerRoleId(userId,
-                            objects.getT2()).zipWith(Mono.just(objects.getT1())))
-                    .flatMap(objects -> {
-                        int count = objects.getT1();
-                        List<AuthzManagerRoleOrganization> list = objects.getT2();
-
-                        List<UUID> organizationIds = new ArrayList<>();
-                        list.forEach(authzManagerRoleOrganization -> organizationIds.add(authzManagerRoleOrganization.getOrganizationId()));
-
-                        LOG.info("got count of authzManagerRoleOrganization of userId and superAdmin role: {}", count);
-                        Page<UUID> page = new RestPage<>(organizationIds, pageable.getPageNumber(),
-                                pageable.getPageSize(), count, list.size(), pageable.getPageNumber());
-                        return Mono.just(page);
-                    });
-            });
+    private Mono<Page<UUID>> scopeIdsForUser(UUID userId, UUID roleId, String scopeType, Pageable pageable) {
+        return authzManagerRoleAssignmentRepository.findByUserIdAndAuthzManagerRoleIdAndScopeType(
+                        userId, roleId, scopeType, pageable)
+                .collectList()
+                .flatMap(assignments -> authzManagerRoleAssignmentRepository
+                        .countByUserIdAndAuthzManagerRoleIdAndScopeType(userId, roleId, scopeType)
+                        .map(count -> {
+                            List<UUID> scopeIds = new ArrayList<>();
+                            assignments.forEach(assignment -> scopeIds.add(assignment.getScopeId()));
+                            return new RestPage<>(scopeIds, pageable.getPageNumber(), pageable.getPageSize(), count,
+                                    assignments.size(), pageable.getPageNumber());
+                        }));
     }
 
-    @Override
-    public Mono<Boolean> isUserSuperAdminByOrgId(UUID userId, UUID organizationId) {
-        LOG.info("check if userId {} is superadmin in organizationId {}", userId, organizationId);
-
-        return authzManagerRoleRepository.findByName("SuperAdmin")
-                .flatMap(authzManagerRole -> Mono.just(authzManagerRole.getId()))
-                .flatMap(uuid -> authzManagerRoleOrganizationRepository.
-                        existsByUserIdAndAuthzManagerRoleIdAndOrganizationId(userId, uuid, organizationId));
+    private Map<UUID, UUID> assignmentMap(List<UUID> userIds, List<AuthzManagerRoleAssignment> assignments) {
+        Map<UUID, UUID> map = new HashMap<>();
+        userIds.forEach(userId -> map.put(userId, null));
+        assignments.forEach(assignment -> map.put(assignment.getUserId(), assignment.getId()));
+        return map;
     }
 
-    @Override
-    public Mono<Integer> getSuperAdminOrganizationsCount() {
-        LOG.info("get super admin organization ids count for logged-in user with jwt ");
-
-        return ReactiveSecurityContextHolder.getContext().flatMap(securityContext -> {
+    private Mono<UUID> currentUserId() {
+        return ReactiveSecurityContextHolder.getContext().map(securityContext -> {
             Authentication authentication = securityContext.getAuthentication();
             Jwt jwt = (Jwt) authentication.getPrincipal();
-
-            String userIdString = jwt.getClaim("userId");
-            LOG.info("userIdString: {}", userIdString);
-
-            UUID userId = UUID.fromString(userIdString);
-            LOG.info("userId: {}", userId);
-
-            return authzManagerRoleRepository.findByName("SuperAdmin")
-                    .flatMap(authzManagerRole -> Mono.just(authzManagerRole.getId()))
-                    .flatMap(authzManagerRoleId -> {
-                        LOG.info("authzManagerRole {}", authzManagerRoleId);
-                        return authzManagerRoleOrganizationRepository.countByUserIdAndAuthzManagerRoleId(userId, authzManagerRoleId);
-                    });
-
+            return UUID.fromString(jwt.getClaim("userId"));
         });
     }
 }

@@ -2,10 +2,10 @@ package me.sonam.role;
 
 import me.sonam.role.handler.service.carrier.ClientOrganizationUserWithRole;
 import me.sonam.role.handler.service.carrier.User;
-import me.sonam.role.repo.AuthzManagerRoleOrganizationRepository;
+import me.sonam.role.repo.AuthzManagerRoleAssignmentRepository;
 import me.sonam.role.repo.ClientOrganizationUserRoleRepository;
 import me.sonam.role.repo.RoleRepository;
-import me.sonam.role.repo.entity.AuthzManagerRoleOrganization;
+import me.sonam.role.repo.entity.AuthzManagerRoleAssignment;
 import me.sonam.role.repo.entity.ClientOrganizationUserRole;
 import me.sonam.role.repo.entity.Role;
 import org.junit.jupiter.api.Test;
@@ -56,7 +56,7 @@ public class RoleServiceTest {
     private ClientOrganizationUserRoleRepository clientOrganizationUserRoleRepository;
 
     @Autowired
-    private AuthzManagerRoleOrganizationRepository authzManagerRoleOrganizationRepository;
+    private AuthzManagerRoleAssignmentRepository authzManagerRoleAssignmentRepository;
 
     @Autowired
     ApplicationContext context;
@@ -384,7 +384,7 @@ public class RoleServiceTest {
         }).verifyComplete();
     }
 
-    //delete everything related to this org (Role, ClientOrganizationUserRole, AuthzManagerRoleOrganization)
+    //delete everything related to this org (Role, ClientOrganizationUserRole, AuthzManagerRoleAssignment)
     @Test
     public void deleteMyRole() {
         final String authenticationId = "sonam";
@@ -407,10 +407,10 @@ public class RoleServiceTest {
         //(UUID id, UUID authzManagerRoleId, UUID organizationId, UUID userId) {
         UUID authzManagerRoleId = UUID.randomUUID();
 
-        var authzManagerRoleOrganization = new AuthzManagerRoleOrganization(null, authzManagerRoleId, organizationId, userId);
-        authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization).subscribe();
+        var authzManagerRoleAssignment = new AuthzManagerRoleAssignment(null, authzManagerRoleId, userId, AuthzManagerRoleAssignment.ORGANIZATION, organizationId);
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment).subscribe();
 
-        StepVerifier.create(authzManagerRoleOrganizationRepository.existsById(authzManagerRoleOrganization.getId())).assertNext(boolValue -> {
+        StepVerifier.create(authzManagerRoleAssignmentRepository.existsById(authzManagerRoleAssignment.getId())).assertNext(boolValue -> {
             assertThat(boolValue).isTrue();
         }).verifyComplete();
 
@@ -428,18 +428,18 @@ public class RoleServiceTest {
 
         StepVerifier.create(clientOrganizationUserRoleRepository.findById(clientOrganizationUserRole1.getId())).verifyComplete();
 
-        StepVerifier.create(authzManagerRoleOrganizationRepository.existsById(authzManagerRoleOrganization.getId())).assertNext(exists ->{
+        StepVerifier.create(authzManagerRoleAssignmentRepository.existsById(authzManagerRoleAssignment.getId())).assertNext(exists ->{
             assertThat(exists).isFalse();
         }).verifyComplete();
 
     }
 
     /**
-     * in this test delete ClientOrganizationUserRole and AuthzManagerRoleOrganization associated
+     * in this test delete ClientOrganizationUserRole and AuthzManagerRoleAssignment associated
      * with the organization, leave the role alone as there will be other users associated to it.
      */
     @Test
-    public void deleteMyClientOrganizationUserRoleAndAuthzManagerRoleOrganizationOnly() {
+    public void deleteMyClientOrganizationUserRoleAndAuthzManagerRoleAssignmentOnly() {
         final String authenticationId = "sonam";
         UUID userId = UUID.randomUUID();
         Jwt jwt = jwt(authenticationId, userId);
@@ -463,10 +463,10 @@ public class RoleServiceTest {
         //(UUID id, UUID authzManagerRoleId, UUID organizationId, UUID userId) {
         UUID authzManagerRoleId = UUID.randomUUID();
 
-        var authzManagerRoleOrganization = new AuthzManagerRoleOrganization(null, authzManagerRoleId, organizationId, userId);
-        authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization).subscribe();
+        var authzManagerRoleAssignment = new AuthzManagerRoleAssignment(null, authzManagerRoleId, userId, AuthzManagerRoleAssignment.ORGANIZATION, organizationId);
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment).subscribe();
 
-        StepVerifier.create(authzManagerRoleOrganizationRepository.existsById(authzManagerRoleOrganization.getId())).assertNext(boolValue -> {
+        StepVerifier.create(authzManagerRoleAssignmentRepository.existsById(authzManagerRoleAssignment.getId())).assertNext(boolValue -> {
             assertThat(boolValue).isTrue();
         }).verifyComplete();
 
@@ -489,7 +489,7 @@ public class RoleServiceTest {
                 .assertNext(clientOrganizationUserRole -> assertThat(clientOrganizationUserRole.getId())
                         .isEqualTo(clientOrganizationUserRole2.getId())).verifyComplete();
 
-        StepVerifier.create(authzManagerRoleOrganizationRepository.existsById(authzManagerRoleOrganization.getId())).assertNext(exists ->{
+        StepVerifier.create(authzManagerRoleAssignmentRepository.existsById(authzManagerRoleAssignment.getId())).assertNext(exists ->{
             assertThat(exists).isFalse();
         }).verifyComplete();
 

@@ -4,9 +4,10 @@ import me.sonam.role.handler.RoleManager;
 import me.sonam.role.handler.RoleException;
 import me.sonam.role.handler.service.carrier.ClientOrganizationUserWithRole;
 import me.sonam.role.handler.service.carrier.User;
-import me.sonam.role.repo.AuthzManagerRoleOrganizationRepository;
+import me.sonam.role.repo.AuthzManagerRoleAssignmentRepository;
 import me.sonam.role.repo.ClientOrganizationUserRoleRepository;
 import me.sonam.role.repo.RoleRepository;
+import me.sonam.role.repo.entity.AuthzManagerRoleAssignment;
 import me.sonam.role.repo.entity.ClientOrganizationUserRole;
 import me.sonam.role.repo.entity.Role;
 import org.slf4j.Logger;
@@ -36,7 +37,7 @@ public class RoleManagerService implements RoleManager {
     private ClientOrganizationUserRoleRepository clientOrganizationUserRoleRepository;
 
     @Autowired
-    private AuthzManagerRoleOrganizationRepository authzManagerRoleOrganizationRepository;
+    private AuthzManagerRoleAssignmentRepository authzManagerRoleAssignmentRepository;
 
     @Override
     public Mono<Page<Role>> getRolesByOrganizationId(UUID organizationId, Pageable pageable) {
@@ -166,7 +167,8 @@ public class RoleManagerService implements RoleManager {
                 .flatMap(message -> {
                     message.append(", delete my role success for orgId: '").append(orgId)
                             .append("' and userId: '").append(userId).append("'");
-                    return authzManagerRoleOrganizationRepository.deleteByOrganizationIdAndUserId(orgId, userId)
+                    return authzManagerRoleAssignmentRepository.deleteByScopeTypeAndScopeIdAndUserId(
+                                    AuthzManagerRoleAssignment.ORGANIZATION, orgId, userId)
                             .thenReturn(message.toString());
                 });
     }
