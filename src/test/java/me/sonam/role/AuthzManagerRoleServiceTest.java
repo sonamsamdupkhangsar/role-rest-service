@@ -436,7 +436,7 @@ public class AuthzManagerRoleServiceTest {
         LOG.info("get list of organizations this user is orgAdmin for");
 
         Mono<Map<String, Boolean>> mapMono = webTestClient.mutateWith(mockJwt().jwt(jwt))
-                .get().uri("/roles/authzmanagerroles/users/"+userId+"/organizations/"+organizationId1)
+                .get().uri("/roles/authzmanagerroles/users/"+userId+"/organizations/"+organizationId1+"/org-admin")
                 .headers(addJwt(jwt)).exchange()//.expectStatus().isEqualTo(201)
                         .returnResult(new ParameterizedTypeReference<Map<String, Boolean>>() {}).getResponseBody().single();
 
@@ -471,7 +471,7 @@ public class AuthzManagerRoleServiceTest {
 
         // we will skip saving of the following call to save AuthzManagerRoleAssignment relationship
         Mono<Map<String, Boolean>> monoMap = webTestClient.mutateWith(mockJwt().jwt(jwt))
-                .get().uri("/roles/authzmanagerroles/users/"+userId+"/organizations/"+organizationId1)
+                .get().uri("/roles/authzmanagerroles/users/"+userId+"/organizations/"+organizationId1+"/org-admin")
                 .headers(addJwt(jwt)).exchange()//.expectStatus().isEqualTo(201)
                 .returnResult(new ParameterizedTypeReference<Map<String, Boolean>>() { }).getResponseBody().single();
 
@@ -535,6 +535,10 @@ public class AuthzManagerRoleServiceTest {
         }).verifyComplete();
 
         LOG.info("get only 1 item in the page");
+        final UUID[] firstPagedOrgId = new UUID[1];
+        final UUID[] secondPagedOrgId = new UUID[1];
+        final UUID[] thirdPagedOrgId = new UUID[1];
+
         pageMono = webTestClient.mutateWith(mockJwt().jwt(jwt))
                 .get().uri("/roles/authzmanagerroles/users/organizations?page=0&size=1")
                 .headers(addJwt(jwt)).exchange().returnResult(new ParameterizedTypeReference<RestPage<UUID>>() {})
@@ -544,7 +548,8 @@ public class AuthzManagerRoleServiceTest {
             List<UUID> list = page.content();
 
             assertThat(list.size()).isEqualTo(1);
-            assertThat(list.contains(organizationId1)).isTrue();
+            assertThat(List.of(organizationId1, organizationId2, organizationId3).contains(list.getFirst())).isTrue();
+            firstPagedOrgId[0] = list.getFirst();
         }).verifyComplete();
 
         pageMono = webTestClient.mutateWith(mockJwt().jwt(jwt))
@@ -556,7 +561,8 @@ public class AuthzManagerRoleServiceTest {
             List<UUID> list = page.content();
 
             assertThat(list.size()).isEqualTo(1);
-            assertThat(list.contains(organizationId2)).isTrue();
+            assertThat(List.of(organizationId1, organizationId2, organizationId3).contains(list.getFirst())).isTrue();
+            secondPagedOrgId[0] = list.getFirst();
 
         }).verifyComplete();
 
@@ -569,9 +575,13 @@ public class AuthzManagerRoleServiceTest {
             List<UUID> list = page.content();
 
             assertThat(list.size()).isEqualTo(1);
-            assertThat(list.contains(organizationId3)).isTrue();
+            assertThat(List.of(organizationId1, organizationId2, organizationId3).contains(list.getFirst())).isTrue();
+            thirdPagedOrgId[0] = list.getFirst();
 
         }).verifyComplete();
+
+        assertThat(List.of(firstPagedOrgId[0], secondPagedOrgId[0], thirdPagedOrgId[0])
+                .containsAll(List.of(organizationId1, organizationId2, organizationId3))).isTrue();
 
         LOG.info("get the total size of organizations assoicated to logged-in user");
 
