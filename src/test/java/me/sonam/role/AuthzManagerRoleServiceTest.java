@@ -1,11 +1,11 @@
 package me.sonam.role;
 
 
-import me.sonam.role.repo.AuthzManagerRoleOrganizationRepository;
+import me.sonam.role.repo.AuthzManagerRoleAssignmentRepository;
 import me.sonam.role.repo.AuthzManagerRoleRepository;
 
 import me.sonam.role.repo.entity.AuthzManagerRole;
-import me.sonam.role.repo.entity.AuthzManagerRoleOrganization;
+import me.sonam.role.repo.entity.AuthzManagerRoleAssignment;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,7 +50,7 @@ public class AuthzManagerRoleServiceTest {
     ApplicationContext context;
 
     @Autowired
-    private AuthzManagerRoleOrganizationRepository authzManagerRoleOrganizationRepository;
+    private AuthzManagerRoleAssignmentRepository authzManagerRoleAssignmentRepository;
 
     @Autowired
     private AuthzManagerRoleRepository authzManagerRoleRepository;
@@ -77,7 +77,7 @@ public class AuthzManagerRoleServiceTest {
 
         Jwt jwt = jwt(authenticationId);
        // when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
-        final String name = "SuperAdmin";
+        final String name = "OrgAdmin";
 
         var mapBody = Map.of("name", name);
 
@@ -94,21 +94,21 @@ public class AuthzManagerRoleServiceTest {
 
         StepVerifier.create(authzManagerRoleRepository.existsById(entityExchangeResult.getResponseBody().getId()))
                 .assertNext(aBoolean -> assertThat(aBoolean).isTrue()).verifyComplete();
-        StepVerifier.create(authzManagerRoleRepository.existsByName("SuperAdmin"))
+        StepVerifier.create(authzManagerRoleRepository.existsByName("OrgAdmin"))
                 .assertNext(aBoolean -> assertThat(aBoolean).isTrue()).verifyComplete();
-        StepVerifier.create(authzManagerRoleRepository.existsByName("SuperAdminS"))
+        StepVerifier.create(authzManagerRoleRepository.existsByName("OrgAdminS"))
                 .assertNext(aBoolean -> assertThat(aBoolean).isFalse()).verifyComplete();
 
         EntityExchangeResult<Map<String, UUID>> entityExchangeResult2 = webTestClient.mutateWith(mockJwt().jwt(jwt))
-                .put().uri("/roles/authzmanagerroles/name").bodyValue("SuperAdmin")
+                .put().uri("/roles/authzmanagerroles/name").bodyValue("OrgAdmin")
                 .headers(addJwt(jwt)).exchange()
                 .expectBody(new ParameterizedTypeReference<Map<String, UUID>>() {})
                 .returnResult();
 
         assertThat(entityExchangeResult2.getResponseBody().get("message")).isNotNull();
-        StepVerifier.create(authzManagerRoleRepository.findByName("SuperAdmin")).assertNext(authzManagerRole -> {
+        StepVerifier.create(authzManagerRoleRepository.findByName("OrgAdmin")).assertNext(authzManagerRole -> {
             assertThat(authzManagerRole.getId()).isEqualTo(entityExchangeResult2.getResponseBody().get("message"));
-            LOG.info("verify that repo superAdmin.id is equal to returned from rest call {}", authzManagerRole.getId(),
+            LOG.info("verify that repo orgAdmin.id is equal to returned from rest call {}", authzManagerRole.getId(),
                     entityExchangeResult2.getResponseBody().get("message"));
         }).verifyComplete();
 
@@ -129,10 +129,10 @@ public class AuthzManagerRoleServiceTest {
                 "authzManagerRoleUserId", authzManagerRoleUserId,
                 "organizationId", organizationId);
 
-        EntityExchangeResult<AuthzManagerRoleOrganization> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt))
+        EntityExchangeResult<AuthzManagerRoleAssignment> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt))
                 .post().uri("/roles/authzmanagerroles/users/organizations")
                 .headers(addJwt(jwt)).bodyValue(mapBody).exchange()//.expectStatus().isEqualTo(201)
-                .expectBody(AuthzManagerRoleOrganization.class)
+                .expectBody(AuthzManagerRoleAssignment.class)
                 .returnResult();
         LOG.info("result: {}", entityExchangeResult.getResponseBody());
 
@@ -143,13 +143,13 @@ public class AuthzManagerRoleServiceTest {
         assertThat(entityExchangeResult.getResponseBody().getOrganizationId()).isEqualTo(organizationId);
         assertThat(entityExchangeResult.getResponseBody().getOrganizationId()).isNotEqualTo(userId);
 
-        StepVerifier.create(authzManagerRoleOrganizationRepository.existsById(entityExchangeResult.getResponseBody().getId()))
+        StepVerifier.create(authzManagerRoleAssignmentRepository.existsById(entityExchangeResult.getResponseBody().getId()))
                 .assertNext(aBoolean -> assertThat(aBoolean).isTrue()).verifyComplete();
     }
 
     @Test
-    public void setUserAsSuperAdminInOrganization() {
-        LOG.info("set user as SuperAdmin role in Organization");
+    public void setUserAsOrgAdminInOrganization() {
+        LOG.info("set user as OrgAdmin role in Organization");
         final String authenticationId = "sonam";
         Jwt jwt = jwt(authenticationId);
         final UUID userId = UUID.randomUUID();
@@ -157,50 +157,50 @@ public class AuthzManagerRoleServiceTest {
         final UUID authzManagerRoleUserId = UUID.randomUUID();
         final UUID organizationId = UUID.randomUUID();
 
-        authzManagerRoleRepository.existsByName("SuperAdmin").doOnNext(aBoolean -> {
+        authzManagerRoleRepository.existsByName("OrgAdmin").doOnNext(aBoolean -> {
             if (!aBoolean) {
-                LOG.info("save SuperAdmin role if does not exist");
-                authzManagerRoleRepository.save(new AuthzManagerRole(null, "SuperAdmin")).subscribe();
+                LOG.info("save OrgAdmin role if does not exist");
+                authzManagerRoleRepository.save(new AuthzManagerRole(null, "OrgAdmin")).subscribe();
             }
         }).subscribe();
 
         var mapBody = Map.of("userId", userId.toString(),
-                "authzManagerRoleName", "SuperAdmin",
+                "authzManagerRoleName", "OrgAdmin",
                 "authzManagerRoleUserId", authzManagerRoleUserId,
                 "organizationId", organizationId);
 
-        Mono<AuthzManagerRoleOrganization> authzManagerRoleOrganizationMono = webTestClient.mutateWith(mockJwt().jwt(jwt))
+        Mono<AuthzManagerRoleAssignment> authzManagerRoleAssignmentMono = webTestClient.mutateWith(mockJwt().jwt(jwt))
                 .post().uri("/roles/authzmanagerroles/names/users/organizations")
                 .headers(addJwt(jwt)).bodyValue(mapBody).exchange()//.expectStatus().isEqualTo(201)
-                        .returnResult(AuthzManagerRoleOrganization.class).getResponseBody().single();
+                        .returnResult(AuthzManagerRoleAssignment.class).getResponseBody().single();
 
-        StepVerifier.create(authzManagerRoleOrganizationMono).assertNext(authzManagerRoleOrganization -> {
+        StepVerifier.create(authzManagerRoleAssignmentMono).assertNext(authzManagerRoleAssignment -> {
 
-            LOG.info("authzManagerRoleOrganization: {}", authzManagerRoleOrganization);
-            assertThat(authzManagerRoleOrganization).isNotNull();
-            assertThat(authzManagerRoleOrganization.getAuthzManagerRoleId()).isNotNull();
-            assertThat(authzManagerRoleOrganization.getUserId()).isEqualTo(userId);
-            assertThat(authzManagerRoleOrganization.getId()).isNotNull();
-            assertThat(authzManagerRoleOrganization.getOrganizationId()).isEqualTo(organizationId);
-            assertThat(authzManagerRoleOrganization.getOrganizationId()).isNotEqualTo(userId);
+            LOG.info("authzManagerRoleAssignment: {}", authzManagerRoleAssignment);
+            assertThat(authzManagerRoleAssignment).isNotNull();
+            assertThat(authzManagerRoleAssignment.getAuthzManagerRoleId()).isNotNull();
+            assertThat(authzManagerRoleAssignment.getUserId()).isEqualTo(userId);
+            assertThat(authzManagerRoleAssignment.getId()).isNotNull();
+            assertThat(authzManagerRoleAssignment.getOrganizationId()).isEqualTo(organizationId);
+            assertThat(authzManagerRoleAssignment.getOrganizationId()).isNotEqualTo(userId);
 
-            StepVerifier.create(authzManagerRoleOrganizationRepository.existsById(authzManagerRoleOrganization.getId()))
+            StepVerifier.create(authzManagerRoleAssignmentRepository.existsById(authzManagerRoleAssignment.getId()))
                     .assertNext(aBoolean -> assertThat(aBoolean).isTrue()).verifyComplete();
 
-            StepVerifier.create(authzManagerRoleOrganizationRepository.findById(authzManagerRoleOrganization.getId()))
-                    .assertNext(authzManagerRoleOrganization1 -> {
-                        assertThat(authzManagerRoleOrganization1.getAuthzManagerRoleId()).isNotNull();
-                        assertThat(authzManagerRoleOrganization1.getUserId()).isEqualTo(userId);
-                        assertThat(authzManagerRoleOrganization1.getId()).isNotNull();
-                        assertThat(authzManagerRoleOrganization1.getOrganizationId()).isEqualTo(organizationId);
-                        assertThat(authzManagerRoleOrganization1.getOrganizationId()).isNotEqualTo(userId);
+            StepVerifier.create(authzManagerRoleAssignmentRepository.findById(authzManagerRoleAssignment.getId()))
+                    .assertNext(authzManagerRoleAssignment1 -> {
+                        assertThat(authzManagerRoleAssignment1.getAuthzManagerRoleId()).isNotNull();
+                        assertThat(authzManagerRoleAssignment1.getUserId()).isEqualTo(userId);
+                        assertThat(authzManagerRoleAssignment1.getId()).isNotNull();
+                        assertThat(authzManagerRoleAssignment1.getOrganizationId()).isEqualTo(organizationId);
+                        assertThat(authzManagerRoleAssignment1.getOrganizationId()).isNotEqualTo(userId);
                     }).verifyComplete();
         }).verifyComplete();
     }
 
     @Test
-    public void deleteUserFromAuthzManagerRoleOrganization() {
-        LOG.info("delete user from authzManagerRoleOrganization");
+    public void deleteUserFromAuthzManagerRoleAssignment() {
+        LOG.info("delete user from authzManagerRoleAssignment");
 
         final String authenticationId = "sonam";
         Jwt jwt = jwt(authenticationId);
@@ -208,26 +208,26 @@ public class AuthzManagerRoleServiceTest {
         UUID userId = UUID.randomUUID();
         UUID organizationId = UUID.randomUUID();
 
-        var authzManagerRoleOrganization = new AuthzManagerRoleOrganization(null, authzManagerRoleId, organizationId, userId);
-        authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization).subscribe();
+        var authzManagerRoleAssignment = new AuthzManagerRoleAssignment(null, authzManagerRoleId, userId, AuthzManagerRoleAssignment.ORGANIZATION, organizationId);
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment).subscribe();
 
         Mono<Map<String, String>> mapMono = webTestClient.mutateWith(mockJwt().jwt(jwt))
-                .delete().uri("/roles/authzmanagerroles/users/organizations/"+authzManagerRoleOrganization.getId())
+                .delete().uri("/roles/authzmanagerroles/users/organizations/"+authzManagerRoleAssignment.getId())
                 .headers(addJwt(jwt)).exchange()//.expectStatus().isEqualTo(201)
                 .returnResult(new ParameterizedTypeReference<Map<String, String>>() {}).getResponseBody().single();
 
         StepVerifier.create(mapMono).assertNext(map -> {
-            LOG.info("assert the message is user removed from authzManagerRoleOrganization: {}", map);
-            assertThat(map.get("message")).isEqualTo("User removed from AuthzManagerRoleOrganization");
+            LOG.info("assert the message is user removed from authzManagerRoleAssignment: {}", map);
+            assertThat(map.get("message")).isEqualTo("User removed from AuthzManagerRoleAssignment");
         }).verifyComplete();
 
-        StepVerifier.create(authzManagerRoleOrganizationRepository.existsById(authzManagerRoleOrganization.getId()))
+        StepVerifier.create(authzManagerRoleAssignmentRepository.existsById(authzManagerRoleAssignment.getId()))
                 .assertNext(aBoolean -> assertThat(aBoolean).isFalse()).verifyComplete();
     }
 
     @Test
-    public void getUserIdsFromAuthzManagerRoleOrganizationByOrdId() {
-        LOG.info("get authzManagerRoleOrganization by its id and orgId");
+    public void getUserIdsFromAuthzManagerRoleAssignmentByOrdId() {
+        LOG.info("get authzManagerRoleAssignment by its id and orgId");
 
         final String authenticationId = "sonam";
         Jwt jwt = jwt(authenticationId);
@@ -239,42 +239,39 @@ public class AuthzManagerRoleServiceTest {
 
         authzManagerRoleRepository.deleteAll().subscribe();
 
-        var authzManagerRole = new AuthzManagerRole(null, "SuperAdmin");
+        var authzManagerRole = new AuthzManagerRole(null, "OrgAdmin");
         authzManagerRoleRepository.save(authzManagerRole).subscribe();
         UUID organizationId = UUID.randomUUID();
 
-        var authzManagerRoleOrganization1 = new AuthzManagerRoleOrganization(null, authzManagerRoleId, organizationId, userId1);
-        authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization1).subscribe();
+        var authzManagerRoleAssignment1 = new AuthzManagerRoleAssignment(null, authzManagerRoleId, userId1, AuthzManagerRoleAssignment.ORGANIZATION, organizationId);
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment1).subscribe();
 
-        var authzManagerRoleOrganization2 = new AuthzManagerRoleOrganization(null, authzManagerRoleId, organizationId, userId2);
-        authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization2).subscribe();
+        var authzManagerRoleAssignment2 = new AuthzManagerRoleAssignment(null, authzManagerRoleId, userId2, AuthzManagerRoleAssignment.ORGANIZATION, organizationId);
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment2).subscribe();
 
-        var authzManagerRoleOrganization3 = new AuthzManagerRoleOrganization(null, authzManagerRoleId, organizationId, userId3);
-        authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization3).subscribe();
+        var authzManagerRoleAssignment3 = new AuthzManagerRoleAssignment(null, authzManagerRoleId, userId3, AuthzManagerRoleAssignment.ORGANIZATION, organizationId);
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment3).subscribe();
 
-        var authzManagerRoleOrganization4 = new AuthzManagerRoleOrganization(null, authzManagerRoleId, organizationId, userId4);
-        authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization4).subscribe();
+        var authzManagerRoleAssignment4 = new AuthzManagerRoleAssignment(null, authzManagerRoleId, userId4, AuthzManagerRoleAssignment.ORGANIZATION, organizationId);
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment4).subscribe();
 
-        StepVerifier.create(authzManagerRoleOrganizationRepository.existsById(authzManagerRoleOrganization1.getId()))
+        StepVerifier.create(authzManagerRoleAssignmentRepository.existsById(authzManagerRoleAssignment1.getId()))
                 .assertNext(aBoolean -> assertThat(aBoolean).isTrue()).verifyComplete();
-        StepVerifier.create(authzManagerRoleOrganizationRepository.existsById(authzManagerRoleOrganization2.getId()))
+        StepVerifier.create(authzManagerRoleAssignmentRepository.existsById(authzManagerRoleAssignment2.getId()))
                 .assertNext(aBoolean -> assertThat(aBoolean).isTrue()).verifyComplete();
-        StepVerifier.create(authzManagerRoleOrganizationRepository.existsById(authzManagerRoleOrganization3.getId()))
+        StepVerifier.create(authzManagerRoleAssignmentRepository.existsById(authzManagerRoleAssignment3.getId()))
                 .assertNext(aBoolean -> assertThat(aBoolean).isTrue()).verifyComplete();
-        StepVerifier.create(authzManagerRoleOrganizationRepository.existsById(authzManagerRoleOrganization4.getId()))
+        StepVerifier.create(authzManagerRoleAssignmentRepository.existsById(authzManagerRoleAssignment4.getId()))
                 .assertNext(aBoolean -> assertThat(aBoolean).isTrue()).verifyComplete();
 
-        StepVerifier.create(authzManagerRoleOrganizationRepository.findByAuthzManagerRoleIdAndOrganizationIdAndUserId(
-                authzManagerRoleId, organizationId, userId1)).expectNextCount(1).verifyComplete();
-        StepVerifier.create(authzManagerRoleOrganizationRepository.findByAuthzManagerRoleIdAndOrganizationIdAndUserId(
-                authzManagerRoleId, organizationId, userId2)).expectNextCount(1).verifyComplete();
-        StepVerifier.create(authzManagerRoleOrganizationRepository.findByAuthzManagerRoleIdAndOrganizationIdAndUserId(
-                authzManagerRoleId, organizationId, userId3)).expectNextCount(1).verifyComplete();
-        StepVerifier.create(authzManagerRoleOrganizationRepository.findByAuthzManagerRoleIdAndOrganizationIdAndUserId(
-                authzManagerRoleId, organizationId, userId4)).expectNextCount(1).verifyComplete();
+        StepVerifier.create(authzManagerRoleAssignmentRepository.findByAuthzManagerRoleIdAndUserIdAndScopeTypeAndScopeId(authzManagerRoleId, userId1, AuthzManagerRoleAssignment.ORGANIZATION, organizationId)).expectNextCount(1).verifyComplete();
+        StepVerifier.create(authzManagerRoleAssignmentRepository.findByAuthzManagerRoleIdAndUserIdAndScopeTypeAndScopeId(authzManagerRoleId, userId2, AuthzManagerRoleAssignment.ORGANIZATION, organizationId)).expectNextCount(1).verifyComplete();
+        StepVerifier.create(authzManagerRoleAssignmentRepository.findByAuthzManagerRoleIdAndUserIdAndScopeTypeAndScopeId(authzManagerRoleId, userId3, AuthzManagerRoleAssignment.ORGANIZATION, organizationId)).expectNextCount(1).verifyComplete();
+        StepVerifier.create(authzManagerRoleAssignmentRepository.findByAuthzManagerRoleIdAndUserIdAndScopeTypeAndScopeId(authzManagerRoleId, userId4, AuthzManagerRoleAssignment.ORGANIZATION, organizationId)).expectNextCount(1).verifyComplete();
         //negative test with a random userId
-        StepVerifier.create(authzManagerRoleOrganizationRepository.findByAuthzManagerRoleIdAndOrganizationIdAndUserId(
-                authzManagerRoleId, organizationId, UUID.randomUUID())).expectNextCount(0).verifyComplete();
+        StepVerifier.create(authzManagerRoleAssignmentRepository.findByAuthzManagerRoleIdAndUserIdAndScopeTypeAndScopeId(
+                authzManagerRoleId, UUID.randomUUID(), AuthzManagerRoleAssignment.ORGANIZATION, organizationId))
+                .expectNextCount(0).verifyComplete();
 
 
         EntityExchangeResult<RestPage<UUID>> entityExchangeResult = webTestClient.mutateWith(mockJwt().jwt(jwt))
@@ -367,7 +364,7 @@ public class AuthzManagerRoleServiceTest {
 
         authzManagerRoleRepository.deleteAll().subscribe();
 
-        var authzManagerRole = new AuthzManagerRole(null, "SuperAdmin");
+        var authzManagerRole = new AuthzManagerRole(null, "OrgAdmin");
         authzManagerRoleRepository.save(authzManagerRole).subscribe();
         StepVerifier.create(authzManagerRoleRepository.existsById(authzManagerRole.getId())).assertNext(
                 aBoolean -> {
@@ -378,17 +375,17 @@ public class AuthzManagerRoleServiceTest {
 
         UUID organizationId = UUID.randomUUID();
 
-        var authzManagerRoleOrganization1 = new AuthzManagerRoleOrganization(null, authzManagerRole.getId(), organizationId, userId1);
-        authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization1).subscribe();
+        var authzManagerRoleAssignment1 = new AuthzManagerRoleAssignment(null, authzManagerRole.getId(), userId1, AuthzManagerRoleAssignment.ORGANIZATION, organizationId);
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment1).subscribe();
 
-        var authzManagerRoleOrganization2 = new AuthzManagerRoleOrganization(null, authzManagerRole.getId(), organizationId, userId2);
-        authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization2).subscribe();
+        var authzManagerRoleAssignment2 = new AuthzManagerRoleAssignment(null, authzManagerRole.getId(), userId2, AuthzManagerRoleAssignment.ORGANIZATION, organizationId);
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment2).subscribe();
 
-        var authzManagerRoleOrganization3 = new AuthzManagerRoleOrganization(null, authzManagerRole.getId(), organizationId, userId3);
-        authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization3).subscribe();
+        var authzManagerRoleAssignment3 = new AuthzManagerRoleAssignment(null, authzManagerRole.getId(), userId3, AuthzManagerRoleAssignment.ORGANIZATION, organizationId);
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment3).subscribe();
 
-        var authzManagerRoleOrganization4 = new AuthzManagerRoleOrganization(null, authzManagerRole.getId(), organizationId, userId4);
-        authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization4).subscribe();
+        var authzManagerRoleAssignment4 = new AuthzManagerRoleAssignment(null, authzManagerRole.getId(), userId4, AuthzManagerRoleAssignment.ORGANIZATION, organizationId);
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment4).subscribe();
 
         LOG.info("get map of UUID with boolean value if they are superadmins");
         UUID userId5Invalid = UUID.randomUUID();
@@ -412,7 +409,7 @@ public class AuthzManagerRoleServiceTest {
 
     //test to see if the user is a superadmin based on orgId
     @Test
-    public void isUserSuperAdmin() {
+    public void isUserOrgAdmin() {
         final String authenticationId = "sonam";
 
         UUID userId = UUID.randomUUID();
@@ -422,8 +419,8 @@ public class AuthzManagerRoleServiceTest {
 
         authzManagerRoleRepository.deleteAll().subscribe();
 
-        // this is to create superAdmin role entity AuthzManagerRole
-        var authzManagerRole = new AuthzManagerRole(null, "SuperAdmin");
+        // this is to create orgAdmin role entity AuthzManagerRole
+        var authzManagerRole = new AuthzManagerRole(null, "OrgAdmin");
         authzManagerRoleRepository.save(authzManagerRole).subscribe();
         StepVerifier.create(authzManagerRoleRepository.existsById(authzManagerRole.getId())).assertNext(
                 aBoolean -> {
@@ -432,11 +429,11 @@ public class AuthzManagerRoleServiceTest {
                 }
         ).verifyComplete();
 
-        var authzManagerRoleOrganization1 = new AuthzManagerRoleOrganization(null, authzManagerRole.getId(), organizationId1, userId);
-        authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization1).subscribe();
+        var authzManagerRoleAssignment1 = new AuthzManagerRoleAssignment(null, authzManagerRole.getId(), userId, AuthzManagerRoleAssignment.ORGANIZATION, organizationId1);
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment1).subscribe();
 
 
-        LOG.info("get list of organizations this user is superAdmin for");
+        LOG.info("get list of organizations this user is orgAdmin for");
 
         Mono<Map<String, Boolean>> mapMono = webTestClient.mutateWith(mockJwt().jwt(jwt))
                 .get().uri("/roles/authzmanagerroles/users/"+userId+"/organizations/"+organizationId1)
@@ -450,9 +447,9 @@ public class AuthzManagerRoleServiceTest {
 
     }
 
-    // this is a negative testing of isUserSuperAdmin call
+    // this is a negative testing of isUserOrgAdmin call
     @Test
-    public void isUserSuperAdminFalse() {
+    public void isUserOrgAdminFalse() {
         final String authenticationId = "sonam";
 
         UUID userId = UUID.randomUUID();
@@ -462,8 +459,8 @@ public class AuthzManagerRoleServiceTest {
 
         authzManagerRoleRepository.deleteAll().subscribe();
 
-        // this is to create superAdmin role entity AuthzManagerRole
-        var authzManagerRole = new AuthzManagerRole(null, "SuperAdmin");
+        // this is to create orgAdmin role entity AuthzManagerRole
+        var authzManagerRole = new AuthzManagerRole(null, "OrgAdmin");
         authzManagerRoleRepository.save(authzManagerRole).subscribe();
         StepVerifier.create(authzManagerRoleRepository.existsById(authzManagerRole.getId())).assertNext(
                 aBoolean -> {
@@ -472,7 +469,7 @@ public class AuthzManagerRoleServiceTest {
                 }
         ).verifyComplete();
 
-        // we will skip saving of the following call to save AuthzManagerRoleOrganization relationship
+        // we will skip saving of the following call to save AuthzManagerRoleAssignment relationship
         Mono<Map<String, Boolean>> monoMap = webTestClient.mutateWith(mockJwt().jwt(jwt))
                 .get().uri("/roles/authzmanagerroles/users/"+userId+"/organizations/"+organizationId1)
                 .headers(addJwt(jwt)).exchange()//.expectStatus().isEqualTo(201)
@@ -486,7 +483,7 @@ public class AuthzManagerRoleServiceTest {
     }
 
     @Test
-    public void getSuperAdminOrganizationForLoggedInUser() {
+    public void getOrgAdminOrganizationForLoggedInUser() {
         final String authenticationId = "sonam";
 
         UUID userId1 = UUID.randomUUID();
@@ -498,7 +495,7 @@ public class AuthzManagerRoleServiceTest {
 
         authzManagerRoleRepository.deleteAll().subscribe();
 
-        var authzManagerRole = new AuthzManagerRole(null, "SuperAdmin");
+        var authzManagerRole = new AuthzManagerRole(null, "OrgAdmin");
         authzManagerRoleRepository.save(authzManagerRole).subscribe();
         StepVerifier.create(authzManagerRoleRepository.existsById(authzManagerRole.getId())).assertNext(
                 aBoolean -> {
@@ -507,16 +504,16 @@ public class AuthzManagerRoleServiceTest {
                 }
         ).verifyComplete();
 
-        var authzManagerRoleOrganization1 = new AuthzManagerRoleOrganization(null, authzManagerRole.getId(), organizationId1, userId1);
-        authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization1).subscribe();
+        var authzManagerRoleAssignment1 = new AuthzManagerRoleAssignment(null, authzManagerRole.getId(), userId1, AuthzManagerRoleAssignment.ORGANIZATION, organizationId1);
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment1).subscribe();
 
-        var authzManagerRoleOrganization2 = new AuthzManagerRoleOrganization(null, authzManagerRole.getId(), organizationId2, userId1);
-        authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization2).subscribe();
+        var authzManagerRoleAssignment2 = new AuthzManagerRoleAssignment(null, authzManagerRole.getId(), userId1, AuthzManagerRoleAssignment.ORGANIZATION, organizationId2);
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment2).subscribe();
 
-        var authzManagerRoleOrganization3 = new AuthzManagerRoleOrganization(null, authzManagerRole.getId(), organizationId3, userId1);
-        authzManagerRoleOrganizationRepository.save(authzManagerRoleOrganization3).subscribe();
+        var authzManagerRoleAssignment3 = new AuthzManagerRoleAssignment(null, authzManagerRole.getId(), userId1, AuthzManagerRoleAssignment.ORGANIZATION, organizationId3);
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment3).subscribe();
 
-        LOG.info("get list of organizations this user is superAdmin for");
+        LOG.info("get list of organizations this user is orgAdmin for");
 
         Mono<RestPage<UUID>> pageMono = webTestClient.mutateWith(mockJwt().jwt(jwt))
                 .get().uri("/roles/authzmanagerroles/users/organizations?page=0&size=10")

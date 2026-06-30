@@ -284,7 +284,7 @@ public class Handler {
     }
 
     /**
-     * This creates a user as with AuthzManagerRole user, For example it can create a user with SuperAdmin role for a organization
+     * This creates a user with an AuthzManagerRole assignment for an organization scope.
      * @param serverRequest
      * @return
      */
@@ -303,10 +303,10 @@ public class Handler {
 
                     return authzMgrRole.assignOrganizationToAuthzManagerRoleWithUser(authzManagerRoleId, organizationId, userId);
                 })
-                .flatMap(authzManagerRoleOrganization -> {
+                .flatMap(authzManagerRoleAssignment -> {
                             LOG.info("returning assignOrganizationToAuthzManagerRoleWithUser");
-                            return ServerResponse.created(URI.create("/authzmanagerroles/users/organizations" + authzManagerRoleOrganization.getId()))
-                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(authzManagerRoleOrganization);
+                            return ServerResponse.created(URI.create("/authzmanagerroles/users/organizations/" + authzManagerRoleAssignment.getId()))
+                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(authzManagerRoleAssignment);
                         }
                 )
                 .onErrorResume(throwable -> {
@@ -320,7 +320,7 @@ public class Handler {
      * This method is similar to above method {{@link #assignOrganizationToAuthzManagerRoleWithUser(ServerRequest)}} except
      * this can take the authzManagerRoleName as String and assign user with that role to a orgId
      * @param serverRequest get user payload
-     * @return authzManagerRoleOrganization object
+     * @return authzManagerRoleAssignment object
      */
     public Mono<ServerResponse> setUserAsAuthzManagerRoleForOrganization(ServerRequest serverRequest) {
         LOG.info("handler for setting user as authzManagerRole for org");
@@ -336,10 +336,10 @@ public class Handler {
 
                     return authzMgrRole.setUserAsAuthzManagerRoleNameForOrganization(authzManagerRoleName, organizationId, userId);
                 })
-                .flatMap(authzManagerRoleOrganization -> {
+                .flatMap(authzManagerRoleAssignment -> {
                             LOG.info("user has been set as authzManagerRoleName for organization");
-                            return ServerResponse.created(URI.create("/authzmanagerroles/users/organizations" + authzManagerRoleOrganization.getId()))
-                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(authzManagerRoleOrganization);
+                            return ServerResponse.created(URI.create("/authzmanagerroles/users/organizations/" + authzManagerRoleAssignment.getId()))
+                                    .contentType(MediaType.APPLICATION_JSON).bodyValue(authzManagerRoleAssignment);
                         }
                 )
                 .onErrorResume(throwable -> {
@@ -349,19 +349,67 @@ public class Handler {
                 });
     }
 
-    public Mono<ServerResponse> deleteUserFromAuthzManagerRoleOrganization(ServerRequest serverRequest) {
-        LOG.info("delete user from AuthzManagerRoleOrganization using pathVariable id {}", serverRequest.pathVariable("id"));
-        UUID authzManagerRoleOrganizationId = UUID.fromString(serverRequest.pathVariable("id"));
+    public Mono<ServerResponse> assignSubdomainToAuthzManagerRoleWithUser(ServerRequest serverRequest) {
+        LOG.info("create AuthorizationRoleAssignment for subdomain");
 
-        return authzMgrRole.deleteUserFromAuthzManagerRoleOrganization(authzManagerRoleOrganizationId)
+        return serverRequest.bodyToMono(new ParameterizedTypeReference<Map<String, String>>() {
+                })
+                .switchIfEmpty(Mono.error(new RoleException("map is empty")))
+                .flatMap(map -> {
+                    LOG.info("converting input to UUIDs {}", map);
+                    UUID authzManagerRoleId = UUID.fromString(map.get("authzManagerRoleId"));
+                    UUID userId = UUID.fromString(map.get("userId"));
+                    UUID subdomainId = UUID.fromString(map.get("subdomainId"));
+
+                    return authzMgrRole.assignSubdomainToAuthzManagerRoleWithUser(authzManagerRoleId, subdomainId, userId);
+                })
+                .flatMap(authzManagerRoleAssignment -> ServerResponse
+                        .created(URI.create("/authzmanagerroles/users/subdomains/" + authzManagerRoleAssignment.getId()))
+                        .contentType(MediaType.APPLICATION_JSON).bodyValue(authzManagerRoleAssignment))
+                .onErrorResume(throwable -> {
+                    LOG.error("create assignSubdomainToAuthzManagerRoleWithUser failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    public Mono<ServerResponse> setUserAsAuthzManagerRoleForSubdomain(ServerRequest serverRequest) {
+        LOG.info("handler for setting user as authzManagerRole for subdomain");
+
+        return serverRequest.bodyToMono(new ParameterizedTypeReference<Map<String, String>>() {
+                })
+                .switchIfEmpty(Mono.error(new RoleException("map is empty")))
+                .flatMap(map -> {
+                    LOG.info("get payload from map {}", map);
+                    String authzManagerRoleName = map.get("authzManagerRoleName");
+                    UUID userId = UUID.fromString(map.get("userId"));
+                    UUID subdomainId = UUID.fromString(map.get("subdomainId"));
+
+                    return authzMgrRole.setUserAsAuthzManagerRoleNameForSubdomain(authzManagerRoleName, subdomainId, userId);
+                })
+                .flatMap(authzManagerRoleAssignment -> ServerResponse
+                        .created(URI.create("/authzmanagerroles/users/subdomains/" + authzManagerRoleAssignment.getId()))
+                        .contentType(MediaType.APPLICATION_JSON).bodyValue(authzManagerRoleAssignment))
+                .onErrorResume(throwable -> {
+                    LOG.error("failed to set user as authzManagerRoleName for subdomain, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    public Mono<ServerResponse> deleteUserFromAuthzManagerRoleAssignment(ServerRequest serverRequest) {
+        LOG.info("delete AuthzManagerRoleAssignment using pathVariable id {}", serverRequest.pathVariable("id"));
+        UUID authzManagerRoleAssignmentId = UUID.fromString(serverRequest.pathVariable("id"));
+
+        return authzMgrRole.deleteUserFromAuthzManagerRoleAssignment(authzManagerRoleAssignmentId)
                 .flatMap(role -> {
-                            LOG.info("authzManagerRoleOrganization deleted");
+                            LOG.info("authzManagerRoleAssignment deleted");
                             return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON)
-                                    .bodyValue(Map.of("message", "User removed from AuthzManagerRoleOrganization"));
+                                    .bodyValue(Map.of("message", "User removed from AuthzManagerRoleAssignment"));
                         }
                 )
                 .onErrorResume(throwable -> {
-                    LOG.error("deleteUserFromAuthzManagerRoleOrganization failed, error: {}", throwable.getMessage());
+                    LOG.error("deleteUserFromAuthzManagerRoleAssignment failed, error: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
                             .bodyValue(Map.of("error", throwable.getMessage()));
                 });
@@ -390,18 +438,18 @@ public class Handler {
     }
 
     /**
-     * This is to check if the list of userIds in payload are superAdmin role in this organizationId
+     * This is to check if the list of userIds in payload are OrgAdmin role in this organizationId
      * @param serverRequest
-     * @return Pair of userId and superAdmin like <UserId, SuperAdmin> or <UserId, EMPTY>
+     * @return Pair of userId and OrgAdmin assignment id or empty
      */
-    public Mono<ServerResponse> areUsersSuperAdminInDefaultOrgId(ServerRequest serverRequest) {
-        LOG.info("areUsersSuperAdminInDefaultOrgId {}", serverRequest.pathVariable("organizationId"));
+    public Mono<ServerResponse> areUsersOrgAdminInDefaultOrgId(ServerRequest serverRequest) {
+        LOG.info("areUsersOrgAdminInDefaultOrgId {}", serverRequest.pathVariable("organizationId"));
         UUID organizationId = UUID.fromString(serverRequest.pathVariable("organizationId"));
 
         return serverRequest.bodyToMono(new ParameterizedTypeReference<List<UUID>>() {
                 })
                 .switchIfEmpty(Mono.error(new RoleException("user id List is empty")))
-                .flatMap(list -> authzMgrRole.areUsersSuperAdminByOrgId(list, organizationId))
+                .flatMap(list -> authzMgrRole.areUsersOrgAdminByOrgId(list, organizationId))
                 .flatMap(role -> {
                             LOG.info("returning created");
                             return ServerResponse.created(URI.create("/authzmanagerroles/users"))
@@ -409,31 +457,46 @@ public class Handler {
                         }
                 )
                 .onErrorResume(throwable -> {
-                    LOG.error("areUsersSuperAdminInDefaultOrgId failed, error: {}", throwable.getMessage());
+                    LOG.error("areUsersOrgAdminInDefaultOrgId failed, error: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
                             .bodyValue(Map.of("error", throwable.getMessage()));
                 });
     }
 
     /**
-     * This method return a boolean if the userId has the role of "SuperAdmin" in organizationId
+     * This method return a boolean if the userId has the role of "OrgAdmin" in organizationId
      * @param serverRequest  request object
-     * @return boolean to indicate if is a SuperAdmin or not
+     * @return boolean to indicate if is an OrgAdmin or not
      */
-    public Mono<ServerResponse> isSuperAdminInOrgId(ServerRequest serverRequest) {
+    public Mono<ServerResponse> isOrgAdminInOrgId(ServerRequest serverRequest) {
         LOG.info("extract orgId and userId from serverRequest");
         UUID organizationId = UUID.fromString(serverRequest.pathVariable("organizationId"));
         UUID userId = UUID.fromString(serverRequest.pathVariable("userId"));
 
-        return authzMgrRole.isUserSuperAdminByOrgId(userId, organizationId)
+        return authzMgrRole.isUserOrgAdminByOrgId(userId, organizationId)
                 .flatMap(value -> {
-                            LOG.info("is user superAdmin? : {}", value);
+                            LOG.info("is user OrgAdmin? : {}", value);
                             return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON)
                                     .bodyValue(Map.of("message", value));
                         }
                 )
                 .onErrorResume(throwable -> {
-                    LOG.error("isUserSuperAdminByOrgId call failed, error: {}", throwable.getMessage());
+                    LOG.error("isUserOrgAdminByOrgId call failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    public Mono<ServerResponse> isSubdomainAdminInSubdomainId(ServerRequest serverRequest) {
+        LOG.info("extract subdomainId and userId from serverRequest");
+        UUID subdomainId = UUID.fromString(serverRequest.pathVariable("subdomainId"));
+        UUID userId = UUID.fromString(serverRequest.pathVariable("userId"));
+
+        return authzMgrRole.isUserSubdomainAdminBySubdomainId(userId, subdomainId)
+                .flatMap(value -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(Map.of("message", value)))
+                .onErrorResume(throwable -> {
+                    LOG.error("isUserSubdomainAdminBySubdomainId call failed, error: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
                             .bodyValue(Map.of("error", throwable.getMessage()));
                 });
@@ -441,43 +504,68 @@ public class Handler {
 
 
 
-    public Mono<ServerResponse> getSuperAdminOrganizations(ServerRequest serverRequest) {
-        LOG.info("get super admin organizations for logged-in user");
+    public Mono<ServerResponse> getOrgAdminOrganizations(ServerRequest serverRequest) {
+        LOG.info("get OrgAdmin organizations for logged-in user");
         Pageable pageable = Util.getPageable(serverRequest);
 
-        return  authzMgrRole.getSuperAdminOrganizations(pageable)
+        return  authzMgrRole.getOrgAdminOrganizations(pageable)
                 .flatMap(uuidPage -> {
-                            LOG.info("get super admin organizations");
+                            LOG.info("get OrgAdmin organizations");
                             return ServerResponse.ok()
                                     .contentType(MediaType.APPLICATION_JSON).bodyValue(uuidPage);
                         }
                 )
                 .onErrorResume(throwable -> {
-                    LOG.error("getSuperAdminOrganizations for logged-in user failed, error: {}", throwable.getMessage());
+                    LOG.error("getOrgAdminOrganizations for logged-in user failed, error: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
                             .bodyValue(Map.of("error", throwable.getMessage()));
                 });
     }
 
-    public Mono<ServerResponse> getSuperAdminOrganizationsCount(ServerRequest serverRequest) {
-        LOG.info("get super admin organizations count for logged-in user");
+    public Mono<ServerResponse> getOrgAdminOrganizationsCount(ServerRequest serverRequest) {
+        LOG.info("get OrgAdmin organizations count for logged-in user");
 
-        return  authzMgrRole.getSuperAdminOrganizationsCount()
+        return  authzMgrRole.getOrgAdminOrganizationsCount()
                 .flatMap(count -> {
-                            LOG.info("returning count of superadmin organizations count");
+                            LOG.info("returning count of OrgAdmin organizations count");
                             return ServerResponse.ok()
                                     .contentType(MediaType.APPLICATION_JSON).bodyValue(Map.of("message", count));
                         }
                 )
                 .onErrorResume(throwable -> {
-                    LOG.error("getSuperAdminOrganizations count for logged-in user failed, error: {}", throwable.getMessage());
+                    LOG.error("getOrgAdminOrganizations count for logged-in user failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    public Mono<ServerResponse> getSubdomainAdminSubdomains(ServerRequest serverRequest) {
+        LOG.info("get SubdomainAdmin subdomains for logged-in user");
+        Pageable pageable = Util.getPageable(serverRequest);
+
+        return authzMgrRole.getSubdomainAdminSubdomains(pageable)
+                .flatMap(uuidPage -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(uuidPage))
+                .onErrorResume(throwable -> {
+                    LOG.error("getSubdomainAdminSubdomains for logged-in user failed, error: {}", throwable.getMessage());
+                    return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("error", throwable.getMessage()));
+                });
+    }
+
+    public Mono<ServerResponse> getSubdomainAdminSubdomainsCount(ServerRequest serverRequest) {
+        LOG.info("get SubdomainAdmin subdomains count for logged-in user");
+
+        return authzMgrRole.getSubdomainAdminSubdomainsCount()
+                .flatMap(count -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(Map.of("message", count)))
+                .onErrorResume(throwable -> {
+                    LOG.error("getSubdomainAdminSubdomainsCount for logged-in user failed, error: {}", throwable.getMessage());
                     return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
                             .bodyValue(Map.of("error", throwable.getMessage()));
                 });
     }
 
     public Mono<ServerResponse> getOrganizationWithRoleCount(ServerRequest serverRequest) {
-        LOG.info("get a count of user in this organization with role and superAdmin roles");
+        LOG.info("get a count of users in this organization with client roles");
 
         UUID orgId = UUID.fromString(serverRequest.pathVariable("organizationId"));
 

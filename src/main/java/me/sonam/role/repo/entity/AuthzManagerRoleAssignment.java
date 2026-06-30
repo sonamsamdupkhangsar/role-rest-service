@@ -6,17 +6,24 @@ import org.springframework.data.domain.Persistable;
 
 import java.util.UUID;
 
-public class AuthzManagerRoleOrganization implements Persistable<UUID> {
+public class AuthzManagerRoleAssignment implements Persistable<UUID> {
+    public static final String ORGANIZATION = "ORGANIZATION";
+    public static final String SUBDOMAIN = "SUBDOMAIN";
+
     @Id
     private UUID id;
     private UUID authzManagerRoleId;
     private UUID userId;
-    private UUID organizationId;
+    private String scopeType;
+    private UUID scopeId;
 
     @Transient
     private boolean isNew;
 
-    public AuthzManagerRoleOrganization(UUID id, UUID authzManagerRoleId, UUID organizationId, UUID userId) {
+    public AuthzManagerRoleAssignment() {
+    }
+
+    public AuthzManagerRoleAssignment(UUID id, UUID authzManagerRoleId, UUID userId, String scopeType, UUID scopeId) {
         if (id != null) {
             this.id = id;
             this.isNew = false;
@@ -26,14 +33,12 @@ public class AuthzManagerRoleOrganization implements Persistable<UUID> {
             this.isNew = true;
         }
         this.authzManagerRoleId = authzManagerRoleId;
-        this.organizationId = organizationId;
         this.userId = userId;
+        this.scopeType = scopeType;
+        this.scopeId = scopeId;
     }
 
-    public AuthzManagerRoleOrganization() {
-
-    }
-
+    @Override
     public UUID getId() {
         return id;
     }
@@ -43,27 +48,39 @@ public class AuthzManagerRoleOrganization implements Persistable<UUID> {
         return isNew;
     }
 
-    public UUID getUserId() {
-        return userId;
-    }
-
-    public UUID getOrganizationId() {
-        return organizationId;
-    }
-
     public UUID getAuthzManagerRoleId() {
         return authzManagerRoleId;
     }
 
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public String getScopeType() {
+        return scopeType;
+    }
+
+    public UUID getScopeId() {
+        return scopeId;
+    }
+
+    public UUID getOrganizationId() {
+        return ORGANIZATION.equals(scopeType) ? scopeId : null;
+    }
+
+    public UUID getSubdomainId() {
+        return SUBDOMAIN.equals(scopeType) ? scopeId : null;
+    }
+
     @Override
     public String toString() {
-        return "AuthzManagerRoleOrganization{" +
+        return "AuthzManagerRoleAssignment{" +
                 "id=" + id +
                 ", authzManagerRoleId=" + authzManagerRoleId +
                 ", userId=" + userId +
-                ", organizationId=" + organizationId +
+                ", scopeType='" + scopeType + '\'' +
+                ", scopeId=" + scopeId +
                 ", isNew=" + isNew +
                 '}';
     }
 }
-

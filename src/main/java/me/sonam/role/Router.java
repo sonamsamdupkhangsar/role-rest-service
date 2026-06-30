@@ -48,12 +48,18 @@ public class Router {
                 .andRoute(PUT("/roles/authzmanagerroles/name").and(accept(MediaType.APPLICATION_JSON)), handler::getAuthzManagerRoleIdForName)
                 .andRoute(POST("/roles/authzmanagerroles/users/organizations"), handler::assignOrganizationToAuthzManagerRoleWithUser)
                 .andRoute(POST("/roles/authzmanagerroles/names/users/organizations"), handler::setUserAsAuthzManagerRoleForOrganization)
-                .andRoute(DELETE("/roles/authzmanagerroles/users/organizations/{id}"), handler::deleteUserFromAuthzManagerRoleOrganization)
+                .andRoute(POST("/roles/authzmanagerroles/users/subdomains"), handler::assignSubdomainToAuthzManagerRoleWithUser)
+                .andRoute(POST("/roles/authzmanagerroles/names/users/subdomains"), handler::setUserAsAuthzManagerRoleForSubdomain)
+                .andRoute(DELETE("/roles/authzmanagerroles/users/assignments/{id}"), handler::deleteUserFromAuthzManagerRoleAssignment)
+                .andRoute(DELETE("/roles/authzmanagerroles/users/organizations/{id}"), handler::deleteUserFromAuthzManagerRoleAssignment)
                 .andRoute(GET("/roles/authzmanagerroles/{authzManagerRoleId}/users/organizations/{organizationId}"), handler::getAuthzManagerRoleByOrgId)
-                .andRoute(PUT("/roles/authzmanagerroles/users/organizations/{organizationId}"), handler::areUsersSuperAdminInDefaultOrgId)
-                .andRoute(GET("/roles/authzmanagerroles/users/{userId}/organizations/{organizationId}"), handler::isSuperAdminInOrgId)
-                .andRoute(GET("/roles/authzmanagerroles/users/organizations"), handler::getSuperAdminOrganizations)
-                .andRoute(GET("/roles/authzmanagerroles/users/organizations/count"), handler::getSuperAdminOrganizationsCount)
+                .andRoute(PUT("/roles/authzmanagerroles/users/organizations/{organizationId}"), handler::areUsersOrgAdminInDefaultOrgId)
+                .andRoute(GET("/roles/authzmanagerroles/users/{userId}/organizations/{organizationId}/org-admin"), handler::isOrgAdminInOrgId)
+                .andRoute(GET("/roles/authzmanagerroles/users/{userId}/subdomains/{subdomainId}/subdomain-admin"), handler::isSubdomainAdminInSubdomainId)
+                .andRoute(GET("/roles/authzmanagerroles/users/organizations"), handler::getOrgAdminOrganizations)
+                .andRoute(GET("/roles/authzmanagerroles/users/organizations/count"), handler::getOrgAdminOrganizationsCount)
+                .andRoute(GET("/roles/authzmanagerroles/users/subdomains"), handler::getSubdomainAdminSubdomains)
+                .andRoute(GET("/roles/authzmanagerroles/users/subdomains/count"), handler::getSubdomainAdminSubdomainsCount)
                 .andRoute(GET("/roles/organizations/{organizationId}/count"), handler::getOrganizationWithRoleCount);
 
 
