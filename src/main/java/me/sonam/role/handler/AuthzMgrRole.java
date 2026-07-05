@@ -30,6 +30,9 @@ public interface AuthzMgrRole {
     Mono<Integer> getOrgAdminOrganizationsCount();
     Mono<Page<UUID>> getSubdomainAdminSubdomains(Pageable pageable);
     Mono<Integer> getSubdomainAdminSubdomainsCount();
+    Mono<Page<AuthzManagerRoleAssignment>> getSubdomainAdminAssignments(UUID subdomainId, Pageable pageable);
+    Mono<AuthzManagerRoleAssignment> addSubdomainAdmin(UUID subdomainId, UUID userId);
+    Mono<String> removeSubdomainAdmin(UUID subdomainId, UUID assignmentId);
     Mono<Boolean> isUserOrgAdminByOrgId(UUID userId, UUID organizationId);
     Mono<Boolean> isUserSubdomainAdminBySubdomainId(UUID userId, UUID subdomainId);
     Mono<AuthzManagerRoleAssignment> setUserAsAuthzManagerRoleNameForOrganization(String authzManagerRoleName, UUID organizationId, UUID userId);

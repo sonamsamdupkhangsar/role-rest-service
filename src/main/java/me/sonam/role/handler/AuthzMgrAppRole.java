@@ -11,7 +11,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -136,6 +138,58 @@ public class AuthzMgrAppRole implements AuthzMgrRole {
     }
 
     @Override
+    public Mono<Page<AuthzManagerRoleAssignment>> getSubdomainAdminAssignments(UUID subdomainId, Pageable pageable) {
+        return requireCurrentUserSubdomainAdmin(subdomainId)
+                .then(roleId(SUBDOMAIN_ADMIN))
+                .flatMap(roleId -> authzManagerRoleAssignmentRepository
+                        .findByAuthzManagerRoleIdAndScopeTypeAndScopeId(roleId,
+                                AuthzManagerRoleAssignment.SUBDOMAIN, subdomainId, pageable)
+                        .collectList()
+                        .zipWith(authzManagerRoleAssignmentRepository
+                                .countByAuthzManagerRoleIdAndScopeTypeAndScopeId(roleId,
+                                        AuthzManagerRoleAssignment.SUBDOMAIN, subdomainId)))
+                .map(result -> new RestPage<>(result.getT1(), pageable.getPageNumber(), pageable.getPageSize(),
+                        result.getT2(), result.getT1().size(), pageable.getPageNumber()));
+    }
+
+    @Override
+    public Mono<AuthzManagerRoleAssignment> addSubdomainAdmin(UUID subdomainId, UUID userId) {
+        return requireCurrentUserSubdomainAdmin(subdomainId)
+                .then(roleId(SUBDOMAIN_ADMIN))
+                .flatMap(roleId -> authzManagerRoleAssignmentRepository
+                        .existsByAuthzManagerRoleIdAndUserIdAndScopeTypeAndScopeId(roleId, userId,
+                                AuthzManagerRoleAssignment.SUBDOMAIN, subdomainId)
+                        .flatMap(exists -> {
+                            if (exists) {
+                                return Mono.error(new RoleException("User is already a SubdomainAdmin for this subdomain"));
+                            }
+                            return assignScope(roleId, userId, AuthzManagerRoleAssignment.SUBDOMAIN, subdomainId);
+                        }));
+    }
+
+    @Override
+    public Mono<String> removeSubdomainAdmin(UUID subdomainId, UUID assignmentId) {
+        return requireCurrentUserSubdomainAdmin(subdomainId)
+                .then(roleId(SUBDOMAIN_ADMIN))
+                .flatMap(roleId -> authzManagerRoleAssignmentRepository.findById(assignmentId)
+                        .filter(assignment -> roleId.equals(assignment.getAuthzManagerRoleId())
+                                && AuthzManagerRoleAssignment.SUBDOMAIN.equals(assignment.getScopeType())
+                                && subdomainId.equals(assignment.getScopeId()))
+                        .switchIfEmpty(Mono.error(new RoleException(
+                                "SubdomainAdmin assignment does not belong to this subdomain")))
+                        .flatMap(assignment -> authzManagerRoleAssignmentRepository
+                                .countByAuthzManagerRoleIdAndScopeTypeAndScopeId(roleId,
+                                        AuthzManagerRoleAssignment.SUBDOMAIN, subdomainId)
+                                .flatMap(count -> {
+                                    if (count <= 1) {
+                                        return Mono.error(new RoleException("Cannot remove the final SubdomainAdmin"));
+                                    }
+                                    return authzManagerRoleAssignmentRepository.deleteById(assignmentId)
+                                            .thenReturn("SubdomainAdmin assignment deleted");
+                                })));
+    }
+
+    @Override
     public Mono<Boolean> isUserOrgAdminByOrgId(UUID userId, UUID organizationId) {
         LOG.info("check if userId {} is OrgAdmin in organizationId {}", userId, organizationId);
         return roleId(ORG_ADMIN)
@@ -202,16 +256,18 @@ public class AuthzMgrAppRole implements AuthzMgrRole {
     }
 
     private Mono<Page<UUID>> scopeIdsForUser(UUID userId, UUID roleId, String scopeType, Pageable pageable) {
+        Pageable stablePageable = pageable.getSort().isSorted() ? pageable
+                : PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("scopeId"));
         return authzManagerRoleAssignmentRepository.findByUserIdAndAuthzManagerRoleIdAndScopeType(
-                        userId, roleId, scopeType, pageable)
+                        userId, roleId, scopeType, stablePageable)
                 .collectList()
                 .flatMap(assignments -> authzManagerRoleAssignmentRepository
                         .countByUserIdAndAuthzManagerRoleIdAndScopeType(userId, roleId, scopeType)
                         .map(count -> {
                             List<UUID> scopeIds = new ArrayList<>();
                             assignments.forEach(assignment -> scopeIds.add(assignment.getScopeId()));
-                            return new RestPage<>(scopeIds, pageable.getPageNumber(), pageable.getPageSize(), count,
-                                    assignments.size(), pageable.getPageNumber());
+                            return new RestPage<>(scopeIds, stablePageable.getPageNumber(), stablePageable.getPageSize(), count,
+                                    assignments.size(), stablePageable.getPageNumber());
                         }));
     }
 
@@ -228,5 +284,14 @@ public class AuthzMgrAppRole implements AuthzMgrRole {
             Jwt jwt = (Jwt) authentication.getPrincipal();
             return UUID.fromString(jwt.getClaim("userId"));
         });
+    }
+
+    private Mono<UUID> requireCurrentUserSubdomainAdmin(UUID subdomainId) {
+        return currentUserId()
+                .flatMap(userId -> isUserSubdomainAdminBySubdomainId(userId, subdomainId)
+                        .filter(Boolean::booleanValue)
+                        .switchIfEmpty(Mono.error(new RoleException(
+                                "SubdomainAdmin access is required for this subdomain")))
+                        .thenReturn(userId));
     }
 }
