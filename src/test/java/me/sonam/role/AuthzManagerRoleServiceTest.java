@@ -24,6 +24,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -493,10 +494,10 @@ public class AuthzManagerRoleServiceTest {
         UUID organizationId2 = UUID.randomUUID();
         UUID organizationId3 = UUID.randomUUID();
 
-        authzManagerRoleRepository.deleteAll().subscribe();
+        authzManagerRoleRepository.deleteAll().block();
 
         var authzManagerRole = new AuthzManagerRole(null, "OrgAdmin");
-        authzManagerRoleRepository.save(authzManagerRole).subscribe();
+        authzManagerRoleRepository.save(authzManagerRole).block();
         StepVerifier.create(authzManagerRoleRepository.existsById(authzManagerRole.getId())).assertNext(
                 aBoolean -> {
                     assertThat(aBoolean).isTrue();
@@ -505,13 +506,13 @@ public class AuthzManagerRoleServiceTest {
         ).verifyComplete();
 
         var authzManagerRoleAssignment1 = new AuthzManagerRoleAssignment(null, authzManagerRole.getId(), userId1, AuthzManagerRoleAssignment.ORGANIZATION, organizationId1);
-        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment1).subscribe();
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment1).block();
 
         var authzManagerRoleAssignment2 = new AuthzManagerRoleAssignment(null, authzManagerRole.getId(), userId1, AuthzManagerRoleAssignment.ORGANIZATION, organizationId2);
-        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment2).subscribe();
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment2).block();
 
         var authzManagerRoleAssignment3 = new AuthzManagerRoleAssignment(null, authzManagerRole.getId(), userId1, AuthzManagerRoleAssignment.ORGANIZATION, organizationId3);
-        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment3).subscribe();
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment3).block();
 
         LOG.info("get list of organizations this user is orgAdmin for");
 
@@ -535,10 +536,7 @@ public class AuthzManagerRoleServiceTest {
         }).verifyComplete();
 
         LOG.info("get only 1 item in the page");
-        final UUID[] firstPagedOrgId = new UUID[1];
-        final UUID[] secondPagedOrgId = new UUID[1];
-        final UUID[] thirdPagedOrgId = new UUID[1];
-
+        List<UUID> pagedOrganizationIds = new ArrayList<>();
         pageMono = webTestClient.mutateWith(mockJwt().jwt(jwt))
                 .get().uri("/roles/authzmanagerroles/users/organizations?page=0&size=1")
                 .headers(addJwt(jwt)).exchange().returnResult(new ParameterizedTypeReference<RestPage<UUID>>() {})
@@ -548,8 +546,7 @@ public class AuthzManagerRoleServiceTest {
             List<UUID> list = page.content();
 
             assertThat(list.size()).isEqualTo(1);
-            assertThat(List.of(organizationId1, organizationId2, organizationId3).contains(list.getFirst())).isTrue();
-            firstPagedOrgId[0] = list.getFirst();
+            pagedOrganizationIds.add(list.getFirst());
         }).verifyComplete();
 
         pageMono = webTestClient.mutateWith(mockJwt().jwt(jwt))
@@ -561,8 +558,7 @@ public class AuthzManagerRoleServiceTest {
             List<UUID> list = page.content();
 
             assertThat(list.size()).isEqualTo(1);
-            assertThat(List.of(organizationId1, organizationId2, organizationId3).contains(list.getFirst())).isTrue();
-            secondPagedOrgId[0] = list.getFirst();
+            pagedOrganizationIds.add(list.getFirst());
 
         }).verifyComplete();
 
@@ -575,13 +571,13 @@ public class AuthzManagerRoleServiceTest {
             List<UUID> list = page.content();
 
             assertThat(list.size()).isEqualTo(1);
-            assertThat(List.of(organizationId1, organizationId2, organizationId3).contains(list.getFirst())).isTrue();
-            thirdPagedOrgId[0] = list.getFirst();
+            pagedOrganizationIds.add(list.getFirst());
 
         }).verifyComplete();
 
-        assertThat(List.of(firstPagedOrgId[0], secondPagedOrgId[0], thirdPagedOrgId[0])
-                .containsAll(List.of(organizationId1, organizationId2, organizationId3))).isTrue();
+        assertThat(pagedOrganizationIds.size()).isEqualTo(3);
+        assertThat(pagedOrganizationIds.containsAll(
+                List.of(organizationId1, organizationId2, organizationId3))).isTrue();
 
         LOG.info("get the total size of organizations assoicated to logged-in user");
 
@@ -595,6 +591,114 @@ public class AuthzManagerRoleServiceTest {
         LOG.info("map contains: {}", entityExchangeResult3.getResponseBody());
         Map<String, Integer> map = entityExchangeResult3.getResponseBody();
         assertThat(map.get("message")).isEqualTo(3);
+    }
+
+    @Test
+    public void manageSubdomainAdministratorsWithinCallerScope() {
+        UUID callerId = UUID.randomUUID();
+        UUID existingAdminId = UUID.randomUUID();
+        UUID targetUserId = UUID.randomUUID();
+        UUID subdomainId = UUID.randomUUID();
+        Jwt jwt = jwt("subdomain-admin", callerId);
+
+        authzManagerRoleAssignmentRepository.deleteAll().block();
+        authzManagerRoleRepository.deleteAll().block();
+
+        AuthzManagerRole role = authzManagerRoleRepository
+                .save(new AuthzManagerRole(null, "SubdomainAdmin")).block();
+        AuthzManagerRoleAssignment callerAssignment = authzManagerRoleAssignmentRepository.save(
+                new AuthzManagerRoleAssignment(null, role.getId(), callerId,
+                        AuthzManagerRoleAssignment.SUBDOMAIN, subdomainId)).block();
+        AuthzManagerRoleAssignment existingAssignment = authzManagerRoleAssignmentRepository.save(
+                new AuthzManagerRoleAssignment(null, role.getId(), existingAdminId,
+                        AuthzManagerRoleAssignment.SUBDOMAIN, subdomainId)).block();
+
+        webTestClient.mutateWith(mockJwt().jwt(jwt)).get()
+                .uri("/roles/authzmanagerroles/subdomains/" + subdomainId + "/administrators?page=0&size=10")
+                .exchange().expectStatus().isOk()
+                .expectBody(new ParameterizedTypeReference<RestPage<AuthzManagerRoleAssignment>>() {})
+                .value(page -> assertThat(page.content().size()).isEqualTo(2));
+
+        AuthzManagerRoleAssignment added = webTestClient.mutateWith(mockJwt().jwt(jwt)).post()
+                .uri("/roles/authzmanagerroles/subdomains/" + subdomainId + "/administrators/" + targetUserId)
+                .exchange().expectStatus().isCreated()
+                .expectBody(AuthzManagerRoleAssignment.class).returnResult().getResponseBody();
+        assertThat(added).isNotNull();
+        assertThat(added.getUserId()).isEqualTo(targetUserId);
+        assertThat(added.getScopeId()).isEqualTo(subdomainId);
+
+        webTestClient.mutateWith(mockJwt().jwt(jwt)).delete()
+                .uri("/roles/authzmanagerroles/subdomains/" + subdomainId + "/administrators/"
+                        + existingAssignment.getId())
+                .exchange().expectStatus().isOk();
+
+        webTestClient.mutateWith(mockJwt().jwt(jwt)).delete()
+                .uri("/roles/authzmanagerroles/subdomains/" + subdomainId + "/administrators/" + added.getId())
+                .exchange().expectStatus().isOk();
+
+        webTestClient.mutateWith(mockJwt().jwt(jwt)).delete()
+                .uri("/roles/authzmanagerroles/subdomains/" + subdomainId + "/administrators/"
+                        + callerAssignment.getId())
+                .exchange().expectStatus().isBadRequest()
+                .expectBody().jsonPath("$.error").isEqualTo("Cannot remove the final SubdomainAdmin");
+
+        webTestClient.mutateWith(mockJwt().jwt(jwt)).get()
+                .uri("/roles/authzmanagerroles/subdomains/" + UUID.randomUUID() + "/administrators")
+                .exchange().expectStatus().isBadRequest()
+                .expectBody().jsonPath("$.error")
+                .isEqualTo("SubdomainAdmin access is required for this subdomain");
+    }
+
+    @Test
+    public void rejectInvalidSubdomainAdministratorManagement() {
+        UUID callerId = UUID.randomUUID();
+        UUID nonAdminId = UUID.randomUUID();
+        UUID existingAdminId = UUID.randomUUID();
+        UUID targetUserId = UUID.randomUUID();
+        UUID subdomainId = UUID.randomUUID();
+        UUID otherSubdomainId = UUID.randomUUID();
+        Jwt callerJwt = jwt("subdomain-admin", callerId);
+        Jwt nonAdminJwt = jwt("ordinary-user", nonAdminId);
+
+        authzManagerRoleAssignmentRepository.deleteAll().block();
+        authzManagerRoleRepository.deleteAll().block();
+
+        AuthzManagerRole role = authzManagerRoleRepository
+                .save(new AuthzManagerRole(null, "SubdomainAdmin")).block();
+        authzManagerRoleAssignmentRepository.save(new AuthzManagerRoleAssignment(null, role.getId(), callerId,
+                AuthzManagerRoleAssignment.SUBDOMAIN, subdomainId)).block();
+        AuthzManagerRoleAssignment existingAssignment = authzManagerRoleAssignmentRepository.save(
+                new AuthzManagerRoleAssignment(null, role.getId(), existingAdminId,
+                        AuthzManagerRoleAssignment.SUBDOMAIN, subdomainId)).block();
+        AuthzManagerRoleAssignment otherScopeAssignment = authzManagerRoleAssignmentRepository.save(
+                new AuthzManagerRoleAssignment(null, role.getId(), UUID.randomUUID(),
+                        AuthzManagerRoleAssignment.SUBDOMAIN, otherSubdomainId)).block();
+
+        webTestClient.mutateWith(mockJwt().jwt(callerJwt)).post()
+                .uri("/roles/authzmanagerroles/subdomains/" + subdomainId + "/administrators/" + existingAdminId)
+                .exchange().expectStatus().isBadRequest()
+                .expectBody().jsonPath("$.error")
+                .isEqualTo("User is already a SubdomainAdmin for this subdomain");
+
+        webTestClient.mutateWith(mockJwt().jwt(callerJwt)).delete()
+                .uri("/roles/authzmanagerroles/subdomains/" + subdomainId + "/administrators/"
+                        + otherScopeAssignment.getId())
+                .exchange().expectStatus().isBadRequest()
+                .expectBody().jsonPath("$.error")
+                .isEqualTo("SubdomainAdmin assignment does not belong to this subdomain");
+
+        webTestClient.mutateWith(mockJwt().jwt(nonAdminJwt)).post()
+                .uri("/roles/authzmanagerroles/subdomains/" + subdomainId + "/administrators/" + targetUserId)
+                .exchange().expectStatus().isBadRequest()
+                .expectBody().jsonPath("$.error")
+                .isEqualTo("SubdomainAdmin access is required for this subdomain");
+
+        webTestClient.mutateWith(mockJwt().jwt(nonAdminJwt)).delete()
+                .uri("/roles/authzmanagerroles/subdomains/" + subdomainId + "/administrators/"
+                        + existingAssignment.getId())
+                .exchange().expectStatus().isBadRequest()
+                .expectBody().jsonPath("$.error")
+                .isEqualTo("SubdomainAdmin access is required for this subdomain");
     }
 
     private Jwt jwt(String subjectName, UUID userId) {

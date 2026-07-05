@@ -564,6 +564,40 @@ public class Handler {
                 });
     }
 
+    public Mono<ServerResponse> getSubdomainAdministrators(ServerRequest serverRequest) {
+        UUID subdomainId = UUID.fromString(serverRequest.pathVariable("subdomainId"));
+        Pageable pageable = Util.getPageable(serverRequest);
+
+        return authzMgrRole.getSubdomainAdminAssignments(subdomainId, pageable)
+                .flatMap(page -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(page))
+                .onErrorResume(throwable -> ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(Map.of("error", throwable.getMessage())));
+    }
+
+    public Mono<ServerResponse> addSubdomainAdministrator(ServerRequest serverRequest) {
+        UUID subdomainId = UUID.fromString(serverRequest.pathVariable("subdomainId"));
+        UUID userId = UUID.fromString(serverRequest.pathVariable("userId"));
+
+        return authzMgrRole.addSubdomainAdmin(subdomainId, userId)
+                .flatMap(assignment -> ServerResponse.created(URI.create(
+                                "/roles/authzmanagerroles/subdomains/" + subdomainId
+                                        + "/administrators/" + assignment.getId()))
+                        .contentType(MediaType.APPLICATION_JSON).bodyValue(assignment))
+                .onErrorResume(throwable -> ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(Map.of("error", throwable.getMessage())));
+    }
+
+    public Mono<ServerResponse> removeSubdomainAdministrator(ServerRequest serverRequest) {
+        UUID subdomainId = UUID.fromString(serverRequest.pathVariable("subdomainId"));
+        UUID assignmentId = UUID.fromString(serverRequest.pathVariable("assignmentId"));
+
+        return authzMgrRole.removeSubdomainAdmin(subdomainId, assignmentId)
+                .flatMap(message -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(Map.of("message", message)))
+                .onErrorResume(throwable -> ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(Map.of("error", throwable.getMessage())));
+    }
+
     public Mono<ServerResponse> getOrganizationWithRoleCount(ServerRequest serverRequest) {
         LOG.info("get a count of users in this organization with client roles");
 

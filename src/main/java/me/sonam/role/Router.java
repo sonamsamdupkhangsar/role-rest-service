@@ -60,6 +60,9 @@ public class Router {
                 .andRoute(GET("/roles/authzmanagerroles/users/organizations/count"), handler::getOrgAdminOrganizationsCount)
                 .andRoute(GET("/roles/authzmanagerroles/users/subdomains"), handler::getSubdomainAdminSubdomains)
                 .andRoute(GET("/roles/authzmanagerroles/users/subdomains/count"), handler::getSubdomainAdminSubdomainsCount)
+                .andRoute(GET("/roles/authzmanagerroles/subdomains/{subdomainId}/administrators"), handler::getSubdomainAdministrators)
+                .andRoute(POST("/roles/authzmanagerroles/subdomains/{subdomainId}/administrators/{userId}"), handler::addSubdomainAdministrator)
+                .andRoute(DELETE("/roles/authzmanagerroles/subdomains/{subdomainId}/administrators/{assignmentId}"), handler::removeSubdomainAdministrator)
                 .andRoute(GET("/roles/organizations/{organizationId}/count"), handler::getOrganizationWithRoleCount);
 
 
