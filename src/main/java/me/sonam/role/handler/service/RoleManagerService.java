@@ -22,6 +22,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
@@ -95,7 +96,8 @@ public class RoleManagerService implements RoleManager {
                 .map(Authentication::getPrincipal)
                 .filter(principal -> principal instanceof Jwt)
                 .map(principal -> issuerFromJwt((Jwt) principal))
-                .defaultIfEmpty("");
+                .filter(StringUtils::hasText)
+                .switchIfEmpty(Mono.error(new RoleException("issuer not found in security context")));
     }
 
     private String issuerFromJwt(Jwt jwt) {

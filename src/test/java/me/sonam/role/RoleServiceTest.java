@@ -574,12 +574,13 @@ public class RoleServiceTest {
 
     private Jwt jwt(String subjectName, UUID userId) {
         return new Jwt("token", null, null,
-                Map.of("alg", "none"), Map.of("sub", subjectName, "userId", userId.toString()));
+                Map.of("alg", "none"), Map.of("sub", subjectName, "userId", userId.toString(),
+                "iss", "https://business1.openissuer.com"));
     }
 
     private Jwt jwt(String subjectName) {
         return new Jwt("token", null, null,
-                Map.of("alg", "none"), Map.of("sub", subjectName));
+                Map.of("alg", "none"), Map.of("sub", subjectName, "iss", "https://business1.openissuer.com"));
     }
 
     private Consumer<HttpHeaders> addJwt(Jwt jwt) {
