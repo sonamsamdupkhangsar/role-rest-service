@@ -39,4 +39,10 @@ permitpath:
 openissuer:
   trusted-issuer-host-suffixes: ${TRUSTED_ISSUER_HOST_SUFFIXES:openissuer.test,openissuer.com}
 
+role-limits:
+  default-max-roles: ${MAX_ROLES:5}
+  hosts:
+    free.openissuer.com: ${FREE_MAX_ROLES:2}
+    demo.openissuer.com: ${DEMO_MAX_ROLES:2}
+
 tokenExpireSeconds: 180

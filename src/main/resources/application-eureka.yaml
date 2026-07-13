@@ -24,3 +24,8 @@ ISSUER_ADDRESS: http://platform.openissuer.test:9001
 ISSUER_URI: ${ISSUER_ADDRESS}
 OAUTH_AUDIENCES: oauth-client
 JWT_SET_URI: ${ISSUER_ADDRESS}/oauth2/jwks
+
+role-limits:
+  hosts:
+    free.openissuer.test: ${FREE_MAX_ROLES:2}
+    demo.openissuer.test: ${DEMO_MAX_ROLES:2}
