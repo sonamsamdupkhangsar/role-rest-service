@@ -1,5 +1,6 @@
 package me.sonam.role.handler.service;
 
+import me.sonam.role.config.RoleLimitProperties;
 import me.sonam.role.handler.RoleManager;
 import me.sonam.role.handler.RoleException;
 import me.sonam.role.handler.service.carrier.ClientOrganizationUserWithRole;
@@ -17,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,7 @@ import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 @Service
 public class RoleManagerService implements RoleManager {
@@ -38,6 +41,9 @@ public class RoleManagerService implements RoleManager {
 
     @Autowired
     private AuthzManagerRoleAssignmentRepository authzManagerRoleAssignmentRepository;
+
+    @Autowired
+    private RoleLimitProperties roleLimitProperties;
 
     @Override
     public Mono<Page<Role>> getRolesByOrganizationId(UUID organizationId, Pageable pageable) {
@@ -68,7 +74,36 @@ public class RoleManagerService implements RoleManager {
         LOG.info("create role {}", role);
 
         Role role2 = new Role(null, role.getName(), role.getOrganizationId());
-        return roleRepository.save(role2).flatMap(Mono::just);
+        return currentIssuer()
+                .map(roleLimitProperties::maxRolesForIssuer)
+                .zipWith(roleRepository.countByOrganizationId(role.getOrganizationId()))
+                .flatMap(objects -> {
+                    int maxRoles = objects.getT1();
+                    long roleCount = objects.getT2();
+                    LOG.info("organization {} has {} roles; maxRoles {}", role.getOrganizationId(), roleCount, maxRoles);
+                    if (roleCount >= maxRoles) {
+                        return Mono.error(new RoleException("Max number of roles reached"));
+                    }
+                    return roleRepository.save(role2);
+                });
+    }
+
+    private Mono<String> currentIssuer() {
+        return ReactiveSecurityContextHolder.getContext()
+                .map(securityContext -> securityContext.getAuthentication())
+                .filter(Objects::nonNull)
+                .map(Authentication::getPrincipal)
+                .filter(principal -> principal instanceof Jwt)
+                .map(principal -> issuerFromJwt((Jwt) principal))
+                .defaultIfEmpty("");
+    }
+
+    private String issuerFromJwt(Jwt jwt) {
+        if (jwt.getIssuer() != null) {
+            return jwt.getIssuer().toString();
+        }
+        String issuer = jwt.getClaimAsString("iss");
+        return issuer == null ? "" : issuer;
     }
 
     /**

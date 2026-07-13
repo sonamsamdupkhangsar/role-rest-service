@@ -95,6 +95,10 @@ envs:
     value: https://platform.openissuer.com/issuer/oauth2/jwks
   - name: OAUTH_AUDIENCES
     value: oauth-client,nextjs-client
+  - name: FREE_MAX_ROLES
+    value: "2"
+  - name: DEMO_MAX_ROLES
+    value: "2"
   - name: NEW_RELIC_ENABLED
     value: false
 
