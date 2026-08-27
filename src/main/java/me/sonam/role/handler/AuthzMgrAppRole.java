@@ -1,6 +1,5 @@
 package me.sonam.role.handler;
 
-import jakarta.annotation.PostConstruct;
 import me.sonam.role.repo.AuthzManagerRoleAssignmentRepository;
 import me.sonam.role.repo.AuthzManagerRoleRepository;
 import me.sonam.role.repo.entity.AuthzManagerRole;
@@ -8,7 +7,8 @@ import me.sonam.role.repo.entity.AuthzManagerRoleAssignment;
 import me.sonam.role.rest.RestPage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -18,8 +18,11 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,21 +30,38 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
-public class AuthzMgrAppRole implements AuthzMgrRole {
+public class AuthzMgrAppRole implements AuthzMgrRole, ApplicationRunner {
     private static final Logger LOG = LoggerFactory.getLogger(AuthzMgrAppRole.class);
     private static final String ORG_ADMIN = "OrgAdmin";
     private static final String SUBDOMAIN_ADMIN = "SubdomainAdmin";
 
-    @Autowired
-    private AuthzManagerRoleRepository authzManagerRoleRepository;
+    private final AuthzManagerRoleRepository authzManagerRoleRepository;
+    private final AuthzManagerRoleAssignmentRepository authzManagerRoleAssignmentRepository;
 
-    @Autowired
-    private AuthzManagerRoleAssignmentRepository authzManagerRoleAssignmentRepository;
+    public AuthzMgrAppRole(AuthzManagerRoleRepository authzManagerRoleRepository,
+                           AuthzManagerRoleAssignmentRepository authzManagerRoleAssignmentRepository) {
+        this.authzManagerRoleRepository = authzManagerRoleRepository;
+        this.authzManagerRoleAssignmentRepository = authzManagerRoleAssignmentRepository;
+    }
 
-    @PostConstruct
-    public void createAdminRoles() {
-        createRoleIfMissing(ORG_ADMIN).subscribe();
-        createRoleIfMissing(SUBDOMAIN_ADMIN).subscribe();
+    @Override
+    public void run(ApplicationArguments args) {
+        bootstrapAdminRoles()
+                .retryWhen(Retry.backoff(10, Duration.ofSeconds(1))
+                        .maxBackoff(Duration.ofSeconds(10))
+                        .doBeforeRetry(signal -> LOG.warn(
+                                "administrator role bootstrap failed; retrying attempt {}: {}",
+                                signal.totalRetries() + 1, signal.failure().getMessage())))
+                .doOnSuccess(ignored -> LOG.info("administrator role bootstrap completed"))
+                .doOnError(error -> LOG.error("administrator role bootstrap failed permanently", error))
+                .block();
+    }
+
+    Mono<Void> bootstrapAdminRoles() {
+        return Flux.concat(
+                        createRoleIfMissing(ORG_ADMIN),
+                        createRoleIfMissing(SUBDOMAIN_ADMIN))
+                .then();
     }
 
     @Override
