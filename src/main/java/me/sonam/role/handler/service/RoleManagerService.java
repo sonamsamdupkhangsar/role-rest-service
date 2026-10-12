@@ -162,10 +162,19 @@ public class RoleManagerService implements RoleManager {
 
     @Override
     public Mono<ClientOrganizationUserRole> addClientOrganizationUserRole(UUID clientId, UUID orgId, UUID roleId, UUID userId) {
-        LOG.info("add role by clientId, orgId, and userId");
+        LOG.info("replace role by clientId, orgId, and userId");
 
         ClientOrganizationUserRole clientOrganizationUserRole = new ClientOrganizationUserRole(null, roleId, clientId, orgId, userId);
-        return clientOrganizationUserRoleRepository.save(clientOrganizationUserRole)
+        // A user can have only one client/organization role assignment.  Use
+        // the Flux query here because older data may already contain duplicate
+        // rows; the single-result query would fail before we could repair them.
+        return clientOrganizationUserRoleRepository
+                .findByClientIdAndOrganizationIdAndUserIdIn(clientId, orgId, List.of(userId))
+                .map(ClientOrganizationUserRole::getId)
+                .collectList()
+                .flatMapMany(Flux::fromIterable)
+                .flatMap(clientOrganizationUserRoleRepository::deleteById)
+                .then(clientOrganizationUserRoleRepository.save(clientOrganizationUserRole))
                 .then(clientOrganizationUserRoleRepository.findById(clientOrganizationUserRole.getId()));
     }
 
