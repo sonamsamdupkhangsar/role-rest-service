@@ -229,9 +229,14 @@ public class Handler {
     public Mono<ServerResponse> deleteUserRoleData(ServerRequest serverRequest) {
         LOG.info("delete my roles for organizationId: {}", serverRequest.pathVariable("organizationId"));
         UUID orgId = UUID.fromString(serverRequest.pathVariable("organizationId"));
+
         return Mono.just(serverRequest.pathVariable("userId"))
                 .map(UUID::fromString)
-                .flatMap(userId -> roleManager.deleteUserRoleData(orgId, userId))
+                .flatMap(userId -> roleManager.deleteUserRoleData(
+                        orgId,
+                        userId,
+                        !"false".equals(serverRequest.queryParam("preserveOrganization")
+                                .orElse("true"))))
                 .flatMap(s -> {
                     LOG.info("delete my role success, sending response: {}", s);
                     return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValue(s);

@@ -14,13 +14,24 @@ public interface RoleManager {
     Mono<Role> getRoleById(UUID id);
     //return all rolws owned by a organizationId
     Mono<Page<Role>> getRolesByOrganizationId(UUID organizationId, Pageable pageable);
+
     Mono<Role> createRole(Role role);
+
     Mono<Role> updateRole(Role role);//Mono<Map<String, Object>> mapMono);
+
     Mono<String> deleteRole(UUID id);
+
     Mono<List<ClientOrganizationUserWithRole>> getClientOrganizationUserWithRoles(UUID clientId, UUID orgId, List<UUID> userUuids);
+
     Mono<UUID> getRoleIdForClientOrganizationUser(UUID clientId, UUID orgId, UUID userId);
+
     Mono<ClientOrganizationUserRole> addClientOrganizationUserRole(UUID clientId, UUID orgId, UUID roleId, UUID userId);
+
     Mono<String> deleteClientOrganizationUserRoleById(UUID id);
+
     Mono<String> deleteUserRoleData(UUID orgId, UUID userId);
+
+    Mono<String> deleteUserRoleData(UUID orgId, UUID userId, boolean preserveOrganization);
+
     Mono<Long> getCountOfUsersWithUserClientOrganizationRoleByOrgId(UUID orgId);
 }

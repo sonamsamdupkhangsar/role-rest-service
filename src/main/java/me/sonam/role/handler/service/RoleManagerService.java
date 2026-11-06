@@ -192,6 +192,11 @@ public class RoleManagerService implements RoleManager {
      */
     @Override
     public Mono<String> deleteUserRoleData(UUID orgId, UUID userId) {
+        return deleteUserRoleData(orgId, userId, true);
+    }
+
+    @Override
+    public Mono<String> deleteUserRoleData(UUID orgId, UUID userId, boolean preserveOrganization) {
         LOG.info("delete my role for orgId: {}", orgId);
         LOG.info("delete role data for explicit userId: {}", userId);
 
@@ -200,19 +205,24 @@ public class RoleManagerService implements RoleManager {
                 .flatMap(aLong -> {
                     StringBuilder stringBuilder = new StringBuilder("clientOrganizationUserRole deleted with this orgId and userId");
 
-                    if (aLong > 0) {
+                    if (preserveOrganization || aLong > 0) {
                         LOG.info(stringBuilder.toString());
                         return Mono.just(stringBuilder);
                     }
                     else {
                         stringBuilder.append(",deleting role");
                         LOG.info(stringBuilder.toString());
-                        return roleRepository.deleteByOrganizationId(orgId).thenReturn(stringBuilder);
+                        return roleRepository.deleteByOrganizationId(orgId)
+                                .thenReturn(stringBuilder);
                     }
                 })
                 .flatMap(message -> {
-                    message.append(", delete my role success for orgId: '").append(orgId)
-                            .append("' and userId: '").append(userId).append("'");
+                    message.append(", delete my role success for orgId: '")
+                            .append(orgId)
+                            .append("' and userId: '")
+                            .append(userId)
+                            .append("'");
+
                     return authzManagerRoleAssignmentRepository.deleteByScopeTypeAndScopeIdAndUserId(
                                     AuthzManagerRoleAssignment.ORGANIZATION, orgId, userId)
                             .thenReturn(message.toString());

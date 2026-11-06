@@ -384,54 +384,71 @@ public class RoleServiceTest {
         }).verifyComplete();
     }
 
-    //delete everything related to this org (Role, ClientOrganizationUserRole, AuthzManagerRoleAssignment)
     @Test
-    public void deleteMyRole() {
-        final String authenticationId = "sonam";
-        UUID userId = UUID.randomUUID();
-        Jwt jwt = jwt(authenticationId, userId);
-        when(this.jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
+    public void legacyUserCleanupPreservesRoleDefinitionsByDefault() {
+        verifyLegacyRoleCleanup(true);
+    }
 
+    @Test
+    public void explicitOrganizationCleanupDeletesUnassignedRoleDefinitions() {
+        verifyLegacyRoleCleanup(false);
+    }
+
+    private void verifyLegacyRoleCleanup(boolean preserveOrganization) {
+        UUID userId = UUID.randomUUID();
         UUID clientId = UUID.randomUUID();
         UUID organizationId = UUID.randomUUID();
         UUID roleId = UUID.randomUUID();
-
-        var role = new Role(roleId, "admin role", organizationId);
-        role.setNew(true);
-
-        roleRepository.save(role).subscribe();
-
-        var clientOrganizationUserRole1 = new ClientOrganizationUserRole(null, roleId, clientId, organizationId, userId);
-        clientOrganizationUserRoleRepository.save(clientOrganizationUserRole1).subscribe();
-
-        //(UUID id, UUID authzManagerRoleId, UUID organizationId, UUID userId) {
         UUID authzManagerRoleId = UUID.randomUUID();
+        Jwt jwt = jwt("sonam", userId);
+        when(jwtDecoder.decode(anyString())).thenReturn(Mono.just(jwt));
 
-        var authzManagerRoleAssignment = new AuthzManagerRoleAssignment(null, authzManagerRoleId, userId, AuthzManagerRoleAssignment.ORGANIZATION, organizationId);
-        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment).subscribe();
+        Role role = new Role(roleId, "admin role", organizationId);
+        role.setNew(true);
+        roleRepository.save(role).block();
 
-        StepVerifier.create(authzManagerRoleAssignmentRepository.existsById(authzManagerRoleAssignment.getId())).assertNext(boolValue -> {
-            assertThat(boolValue).isTrue();
-        }).verifyComplete();
+        ClientOrganizationUserRole clientOrganizationUserRole = new ClientOrganizationUserRole(
+                null, roleId, clientId, organizationId, userId);
+        clientOrganizationUserRoleRepository.save(clientOrganizationUserRole).block();
 
-        Mono<String> stringMono = webTestClient.mutateWith(mockJwt().jwt(jwt)).delete()
-                .uri("/roles/organizations/" + organizationId + "/users/" + userId)
-                .headers(addJwt(jwt)).exchange().returnResult(String.class).getResponseBody().single();
+        AuthzManagerRoleAssignment authzManagerRoleAssignment = new AuthzManagerRoleAssignment(
+                null, authzManagerRoleId, userId, AuthzManagerRoleAssignment.ORGANIZATION, organizationId);
+        authzManagerRoleAssignmentRepository.save(authzManagerRoleAssignment).block();
 
-        StepVerifier.create(stringMono).assertNext(string -> {
-            LOG.info("role deleted response: {}", string);
-            assertThat(string).contains("delete my role success for orgId: '"+organizationId+"' and userId: '"+userId+"'");
-        }).verifyComplete();
+        StepVerifier.create(roleRepository.existsById(roleId))
+                .expectNext(true)
+                .verifyComplete();
+        StepVerifier.create(clientOrganizationUserRoleRepository.existsById(clientOrganizationUserRole.getId()))
+                .expectNext(true)
+                .verifyComplete();
+        StepVerifier.create(authzManagerRoleAssignmentRepository.existsById(authzManagerRoleAssignment.getId()))
+                .expectNext(true)
+                .verifyComplete();
 
-        //no data emitted after deleting objects associated with organizationId
-        StepVerifier.create(roleRepository.findByOrganizationId(organizationId)).verifyComplete();
+        String endpoint = "/roles/organizations/" + organizationId + "/users/" + userId;
+        if (!preserveOrganization) {
+            endpoint += "?preserveOrganization=false";
+        }
 
-        StepVerifier.create(clientOrganizationUserRoleRepository.findById(clientOrganizationUserRole1.getId())).verifyComplete();
+        webTestClient.mutateWith(mockJwt().jwt(jwt))
+                .delete()
+                .uri(endpoint)
+                .headers(addJwt(jwt))
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .value(body -> assertThat(body).contains(
+                        "delete my role success for orgId: '" + organizationId + "' and userId: '" + userId + "'"));
 
-        StepVerifier.create(authzManagerRoleAssignmentRepository.existsById(authzManagerRoleAssignment.getId())).assertNext(exists ->{
-            assertThat(exists).isFalse();
-        }).verifyComplete();
-
+        StepVerifier.create(roleRepository.existsById(roleId))
+                .expectNext(preserveOrganization)
+                .verifyComplete();
+        StepVerifier.create(clientOrganizationUserRoleRepository.existsById(clientOrganizationUserRole.getId()))
+                .expectNext(false)
+                .verifyComplete();
+        StepVerifier.create(authzManagerRoleAssignmentRepository.existsById(authzManagerRoleAssignment.getId()))
+                .expectNext(false)
+                .verifyComplete();
     }
 
     /**

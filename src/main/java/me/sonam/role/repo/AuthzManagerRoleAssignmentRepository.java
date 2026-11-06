@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.UUID;
 
 public interface AuthzManagerRoleAssignmentRepository extends ReactiveCrudRepository<AuthzManagerRoleAssignment, UUID> {
+    Mono<Long> countByUserId(UUID userId);
+
     Mono<Boolean> existsByAuthzManagerRoleIdAndUserIdAndScopeTypeAndScopeId(
             UUID authzManagerRoleId, UUID userId, String scopeType, UUID scopeId);
 
