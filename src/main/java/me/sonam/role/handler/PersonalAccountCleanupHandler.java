@@ -32,7 +32,7 @@ public class PersonalAccountCleanupHandler {
     public Mono<ServerResponse> adminCount(ServerRequest request) {
         return internalServiceAuthorization.requireService()
                 .then(Mono.defer(() ->
-                        authzManagerRoleAssignmentRepository.countByUserId(userId(request))))
+                        authzManagerRoleAssignmentRepository.countByUserId(extractUserId(request))))
                 .flatMap(count -> ServerResponse.ok()
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(Map.of("count", count)));
@@ -41,11 +41,11 @@ public class PersonalAccountCleanupHandler {
     public Mono<ServerResponse> deleteAssignments(ServerRequest request) {
         return internalServiceAuthorization.requireService()
                 .then(Mono.defer(() ->
-                        authzManagerRoleAssignmentRepository.countByUserId(userId(request))))
+                        authzManagerRoleAssignmentRepository.countByUserId(extractUserId(request))))
                 .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE)))
                 .flatMap(count -> {
                     if (count == 0) {
-                        return clientOrganizationUserRoleRepository.deleteByUserId(userId(request))
+                        return clientOrganizationUserRoleRepository.deleteByUserId(extractUserId(request))
                                 .then();
                     }
 
@@ -57,7 +57,7 @@ public class PersonalAccountCleanupHandler {
                         .build());
     }
 
-    private UUID userId(ServerRequest request) {
+    private UUID extractUserId(ServerRequest request) {
         try {
             return UUID.fromString(request.pathVariable("userId"));
         } catch (IllegalArgumentException exception) {

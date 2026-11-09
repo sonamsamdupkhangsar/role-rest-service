@@ -11,6 +11,14 @@ import java.util.UUID;
 public interface ClientOrganizationUserRoleRepository extends ReactiveCrudRepository<ClientOrganizationUserRole, UUID> {
     Mono<Long> deleteByUserId(UUID userId);
 
+    Flux<ClientOrganizationUserRole> findByOrganizationId(UUID organizationId);
+
+    Flux<ClientOrganizationUserRole> findByClientId(UUID clientId);
+
+    Flux<ClientOrganizationUserRole> findByRoleId(UUID roleId);
+
+    Flux<ClientOrganizationUserRole> findByUserId(UUID userId);
+
     Flux<ClientOrganizationUserRole> findByClientIdAndOrganizationIdAndUserIdIn(UUID clientId, UUID organizationId, List<UUID> userId);
 
     Mono<ClientOrganizationUserRole> findByClientIdAndOrganizationIdAndUserId(UUID clientId, UUID organizationId, UUID userId);
