@@ -30,7 +30,7 @@ class PersonalAccountCleanupTest {
 
     @Test
     void deletesOnlyPersonalAssignmentsWhenNoAdminRolesExist() {
-        when(internalServiceAuthorization.requireService())
+        when(internalServiceAuthorization.requireInternalServiceIdentity())
                 .thenReturn(Mono.empty());
         when(authzManagerRoleAssignmentRepository.countByUserId(userId))
                 .thenReturn(Mono.just(0L));
@@ -50,7 +50,7 @@ class PersonalAccountCleanupTest {
 
     @Test
     void adminCountIsReadOnly() {
-        when(internalServiceAuthorization.requireService())
+        when(internalServiceAuthorization.requireInternalServiceIdentity())
                 .thenReturn(Mono.empty());
         when(authzManagerRoleAssignmentRepository.countByUserId(userId))
                 .thenReturn(Mono.just(2L));
@@ -69,7 +69,7 @@ class PersonalAccountCleanupTest {
 
     @Test
     void adminCannotDeleteAssignments() {
-        when(internalServiceAuthorization.requireService())
+        when(internalServiceAuthorization.requireInternalServiceIdentity())
                 .thenReturn(Mono.empty());
         when(authzManagerRoleAssignmentRepository.countByUserId(userId))
                 .thenReturn(Mono.just(1L));
@@ -85,7 +85,7 @@ class PersonalAccountCleanupTest {
 
     @Test
     void unauthorizedCallerCannotReadOrMutateTargetUser() {
-        when(internalServiceAuthorization.requireService())
+        when(internalServiceAuthorization.requireInternalServiceIdentity())
                 .thenReturn(Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN)));
 
         webTestClient.get()
@@ -103,7 +103,7 @@ class PersonalAccountCleanupTest {
 
     @Test
     void missingAdminCountFailsClosed() {
-        when(internalServiceAuthorization.requireService())
+        when(internalServiceAuthorization.requireInternalServiceIdentity())
                 .thenReturn(Mono.empty());
         when(authzManagerRoleAssignmentRepository.countByUserId(userId))
                 .thenReturn(Mono.empty());
@@ -118,7 +118,7 @@ class PersonalAccountCleanupTest {
 
     @Test
     void malformedUserIdReturnsBadRequestWithoutRepositoryAccess() {
-        when(internalServiceAuthorization.requireService())
+        when(internalServiceAuthorization.requireInternalServiceIdentity())
                 .thenReturn(Mono.empty());
 
         webTestClient.delete()

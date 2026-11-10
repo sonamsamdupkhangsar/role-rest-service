@@ -28,7 +28,7 @@ class AdminRoleDeletionTest {
     private final InternalServiceAuthorization internalServiceAuthorization = mock(InternalServiceAuthorization.class);
 
     AdminRoleDeletionTest() {
-        when(internalServiceAuthorization.requireService())
+        when(internalServiceAuthorization.requireInternalServiceIdentity())
                 .thenReturn(Mono.empty());
         when(authzManagerRoleRepository.findAll())
                 .thenReturn(Flux.just(
@@ -87,7 +87,7 @@ class AdminRoleDeletionTest {
 
     @Test
     void unauthorizedCallerCannotInspectOrDelete() {
-        when(internalServiceAuthorization.requireService())
+        when(internalServiceAuthorization.requireInternalServiceIdentity())
                 .thenReturn(Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN)));
         clearInvocations(authzManagerRoleRepository, authzManagerRoleAssignmentRepository,
                 clientOrganizationUserRoleRepository, roleRepository);

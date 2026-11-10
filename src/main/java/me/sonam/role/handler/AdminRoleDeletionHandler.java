@@ -58,19 +58,19 @@ public class AdminRoleDeletionHandler {
     }
 
     public Mono<ServerResponse> accountRoles(ServerRequest request) {
-        return internalServiceAuthorization.requireService()
+        return internalServiceAuthorization.requireInternalServiceIdentity()
                 .then(Mono.defer(() -> inspectUserAdminRoles(extractId(request, "userId"))))
                 .flatMap(this::json);
     }
 
     public Mono<ServerResponse> organizationRoles(ServerRequest request) {
-        return internalServiceAuthorization.requireService()
+        return internalServiceAuthorization.requireInternalServiceIdentity()
                 .then(Mono.defer(() -> inspectOrganizationRoles(extractId(request, "organizationId"))))
                 .flatMap(this::json);
     }
 
     public Mono<ServerResponse> clientRelationships(ServerRequest request) {
-        return internalServiceAuthorization.requireService()
+        return internalServiceAuthorization.requireInternalServiceIdentity()
                 .then(Mono.defer(() -> {
                     UUID clientId = extractId(request, "clientId");
 
@@ -91,7 +91,7 @@ public class AdminRoleDeletionHandler {
 
     @Transactional
     public Mono<ServerResponse> deleteOrganizationRoles(ServerRequest request) {
-        return internalServiceAuthorization.requireService()
+        return internalServiceAuthorization.requireInternalServiceIdentity()
                 .then(Mono.defer(() -> {
                     UUID userId = extractId(request, "userId");
                     UUID organizationId = extractId(request, "organizationId");
@@ -289,6 +289,6 @@ public class AdminRoleDeletionHandler {
                                     Set<UUID> clientIds, boolean protectedResource) {
     }
 
-    public record ClientRoles(UUID clientId, boolean complete, Set<UUID> organizationIds, Set<UUID> userIds) {
+    public record ClientRoles(UUID clientId, boolean clientRoleAssignmentsLoaded, Set<UUID> organizationIds, Set<UUID> userIds) {
     }
 }

@@ -30,7 +30,7 @@ public class PersonalAccountCleanupHandler {
     }
 
     public Mono<ServerResponse> adminCount(ServerRequest request) {
-        return internalServiceAuthorization.requireService()
+        return internalServiceAuthorization.requireInternalServiceIdentity()
                 .then(Mono.defer(() ->
                         authzManagerRoleAssignmentRepository.countByUserId(extractUserId(request))))
                 .flatMap(count -> ServerResponse.ok()
@@ -39,7 +39,7 @@ public class PersonalAccountCleanupHandler {
     }
 
     public Mono<ServerResponse> deleteAssignments(ServerRequest request) {
-        return internalServiceAuthorization.requireService()
+        return internalServiceAuthorization.requireInternalServiceIdentity()
                 .then(Mono.defer(() ->
                         authzManagerRoleAssignmentRepository.countByUserId(extractUserId(request))))
                 .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE)))

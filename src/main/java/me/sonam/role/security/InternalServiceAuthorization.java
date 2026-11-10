@@ -46,7 +46,7 @@ public class InternalServiceAuthorization {
         clientId = parsed;
     }
 
-    public Mono<Void> requireService() {
+    public Mono<Void> requireInternalServiceIdentity() {
         return ReactiveSecurityContextHolder.getContext()
                 .switchIfEmpty(Mono.defer(() -> {
                     LOG.warn("Internal service access denied: security context is missing (HTTP 401)");
