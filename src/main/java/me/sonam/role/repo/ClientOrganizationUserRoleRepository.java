@@ -25,6 +25,8 @@ public interface ClientOrganizationUserRoleRepository extends ReactiveCrudReposi
 
     Mono<Long> deleteByOrganizationIdAndUserId(UUID organizationId, UUID userId);
 
+    Mono<Long> deleteByClientIdAndOrganizationIdAndUserId(UUID clientId, UUID organizationId, UUID userId);
+
     Mono<Long> countByOrganizationId(UUID organizationId);
 
     Mono<Long> countByOrganizationIdAndUserIdNot(UUID organizationId, UUID userId);

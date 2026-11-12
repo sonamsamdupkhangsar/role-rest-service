@@ -37,6 +37,8 @@ public class Router {
                 .andRoute(GET("/roles/internal/admin-deletion/users/{userId}/organizations/{organizationId}"),
                         adminRoleDeletionHandler::organizationRoles)
                 .andRoute(GET("/roles/internal/admin-deletion/clients/{clientId}"), adminRoleDeletionHandler::clientRelationships)
+                .andRoute(DELETE("/roles/internal/admin-deletion/users/{userId}/organizations/{organizationId}/clients/{clientId}/assignments"),
+                        adminRoleDeletionHandler::deleteClientAssignments)
                 .andRoute(DELETE("/roles/internal/admin-deletion/users/{userId}/organizations/{organizationId}"),
                         adminRoleDeletionHandler::deleteOrganizationRoles);
     }

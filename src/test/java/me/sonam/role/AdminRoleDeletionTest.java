@@ -48,6 +48,49 @@ class AdminRoleDeletionTest {
     }
 
     @Test
+    void clientAssignmentCleanupPreservesRoleDefinitionsAndAdminAssignments() {
+        UUID clientId = UUID.randomUUID();
+        when(clientOrganizationUserRoleRepository.findByClientId(clientId))
+                .thenReturn(Flux.just(new ClientOrganizationUserRole(null, roleId, clientId, organizationId, userId)));
+        when(clientOrganizationUserRoleRepository.deleteByClientIdAndOrganizationIdAndUserId(clientId, organizationId, userId))
+                .thenReturn(Mono.just(1L));
+
+        client(true, "")
+                .delete()
+                .uri(path() + "/clients/" + clientId + "/assignments")
+                .exchange()
+                .expectStatus().isNoContent();
+
+        verify(clientOrganizationUserRoleRepository).deleteByClientIdAndOrganizationIdAndUserId(clientId, organizationId, userId);
+        verify(roleRepository, never()).deleteByOrganizationId(any());
+        verify(authzManagerRoleAssignmentRepository, never()).deleteByScopeTypeAndScopeIdAndUserId(any(), any(), any());
+    }
+
+    @Test
+    void clientAssignmentCleanupRejectsOtherUsersAndOrganizations() {
+        UUID clientId = UUID.randomUUID();
+        when(clientOrganizationUserRoleRepository.findByClientId(clientId))
+                .thenReturn(Flux.just(new ClientOrganizationUserRole(null, roleId, clientId, organizationId, UUID.randomUUID())));
+
+        client(true, "")
+                .delete()
+                .uri(path() + "/clients/" + clientId + "/assignments")
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.CONFLICT);
+
+        when(clientOrganizationUserRoleRepository.findByClientId(clientId))
+                .thenReturn(Flux.just(new ClientOrganizationUserRole(null, roleId, clientId, UUID.randomUUID(), userId)));
+
+        client(true, "")
+                .delete()
+                .uri(path() + "/clients/" + clientId + "/assignments")
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.CONFLICT);
+
+        verify(clientOrganizationUserRoleRepository, never()).deleteByClientIdAndOrganizationIdAndUserId(any(), any(), any());
+    }
+
+    @Test
     void organizationInventoryUsesDescriptiveValidationField() {
         client(true, "")
                 .get()

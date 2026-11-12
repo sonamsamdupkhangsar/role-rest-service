@@ -8,6 +8,8 @@ import me.sonam.role.repo.entity.AuthzManagerRole;
 import me.sonam.role.repo.entity.AuthzManagerRoleAssignment;
 import me.sonam.role.repo.entity.ClientOrganizationUserRole;
 import me.sonam.role.security.InternalServiceAuthorization;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -28,6 +30,8 @@ import java.util.stream.Collectors;
 /** Internal role inventories and guarded cleanup; global administrative role definitions remain. */
 @Service
 public class AdminRoleDeletionHandler {
+    private static final Logger LOG = LoggerFactory.getLogger(AdminRoleDeletionHandler.class);
+
     private final AuthzManagerRoleRepository authzManagerRoleRepository;
     private final AuthzManagerRoleAssignmentRepository authzManagerRoleAssignmentRepository;
     private final ClientOrganizationUserRoleRepository clientOrganizationUserRoleRepository;
@@ -61,6 +65,55 @@ public class AdminRoleDeletionHandler {
         return internalServiceAuthorization.requireInternalServiceIdentity()
                 .then(Mono.defer(() -> inspectUserAdminRoles(extractId(request, "userId"))))
                 .flatMap(this::json);
+    }
+
+    /** Removes only the owner's assignments before OAuth client deletion; role definitions remain. */
+    public Mono<ServerResponse> deleteClientAssignments(ServerRequest request) {
+        return internalServiceAuthorization.requireInternalServiceIdentity()
+                .then(Mono.defer(() -> {
+                    UUID userId = extractId(request, "userId");
+                    UUID organizationId = extractId(request, "organizationId");
+                    UUID clientId = extractId(request, "clientId");
+
+                    if (!protectionPolicyVerified || protectedOrganizationIds.contains(organizationId)) {
+                        return Mono.error(conflict("Organization protection prevents client-role cleanup"));
+                    }
+
+                    return inspectUserAdminRoles(userId)
+                            .flatMap(accountRoles -> {
+                                if (accountRoles.hasSubdomainAdminResponsibilities()
+                                        || accountRoles.hasUnresolvedAdminResponsibilities()
+                                        || !accountRoles.organizationIds().contains(organizationId)) {
+                                    return Mono.error(conflict("OrgAdmin access without other administrative responsibilities is required"));
+                                }
+
+                                return inspectOrganizationRoles(organizationId);
+                            })
+                            .flatMap(organizationRoles -> {
+                                if (!organizationRoles.adminRoleAssignmentsValid()
+                                        || !organizationRoles.orgAdminUserIds().equals(Set.of(userId))) {
+                                    return Mono.error(conflict("Other or unresolved administrator assignments prevent cleanup"));
+                                }
+
+                                return clientOrganizationUserRoleRepository.findByClientId(clientId)
+                                        .all(assignment -> userId.equals(assignment.getUserId())
+                                                && organizationId.equals(assignment.getOrganizationId()));
+                            })
+                            .flatMap(exclusiveAssignments -> {
+                                if (!exclusiveAssignments) {
+                                    return Mono.error(conflict("Client role assignments belong to another user or organization"));
+                                }
+
+                                return clientOrganizationUserRoleRepository
+                                        .deleteByClientIdAndOrganizationIdAndUserId(clientId, organizationId, userId)
+                                        .switchIfEmpty(Mono.error(new ResponseStatusException(
+                                                HttpStatus.SERVICE_UNAVAILABLE, "Client-role cleanup returned no result")))
+                                        .doOnNext(count -> LOG.info("Account cleanup removed {} role assignments for client {} in organization {}",
+                                                count, clientId, organizationId))
+                                        .then();
+                            });
+                }))
+                .then(ServerResponse.noContent().build());
     }
 
     public Mono<ServerResponse> organizationRoles(ServerRequest request) {
