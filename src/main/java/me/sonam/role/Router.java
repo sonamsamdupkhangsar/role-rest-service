@@ -1,6 +1,7 @@
 package me.sonam.role;
 
 import me.sonam.role.handler.Handler;
+import me.sonam.role.handler.OrganizationMemberRoleCleanupHandler;
 import me.sonam.role.handler.AdminRoleDeletionHandler;
 import me.sonam.role.handler.PersonalAccountCleanupHandler;
 import org.slf4j.Logger;
@@ -20,6 +21,14 @@ import static org.springframework.web.reactive.function.server.RequestPredicates
 @Configuration
 public class Router {
     private static final Logger LOG = LoggerFactory.getLogger(Router.class);
+
+    @Bean
+    public RouterFunction<ServerResponse> memberRoleCleanupRoutes(
+            OrganizationMemberRoleCleanupHandler organizationMemberRoleCleanupHandler) {
+        return RouterFunctions.route(
+                DELETE("/roles/organizations/{organizationId}/users/{userId}/client-role-assignments"),
+                organizationMemberRoleCleanupHandler::removeMemberClientRoles);
+    }
 
     @Bean
     public RouterFunction<ServerResponse> adminAccountDeletionRoutes(AdminRoleDeletionHandler adminRoleDeletionHandler) {
